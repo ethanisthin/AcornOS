@@ -13,4 +13,5 @@ Thumbs.db
 *.out
 *.bak
 *.tmp
+*.bin
 core.*
