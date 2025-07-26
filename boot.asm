@@ -55,19 +55,8 @@ protected_mode_start:
     mov gs, ax
 
     mov esp, 0x90000
-
-    mov dword [0xB8000], 0x4F4F4F4A
-    mov ecx, 0x1000000
-
-delay:
-    loop delay
-
     jmp 0x8000
 
-    ;call clear_screen
-    ;mov esi, protected_msg
-    ;call print_string_pm
-    jmp $
 
 [BITS 16]
 print_string:
