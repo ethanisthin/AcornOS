@@ -1,0 +1,16 @@
+boot.bin
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.log
+*.o
+*.obj
+*.exe
+*.out
+*.bak
+*.tmp
+core.*
