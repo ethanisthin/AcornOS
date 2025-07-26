@@ -7,6 +7,24 @@ start:
     mov si, hello_msg
     call print_string
 
+    ; kernel loading
+    mov si, loading_msg
+    call print_string
+
+    mov ah, 0x02
+    mov al, 9 
+    mov ch, 0
+    mov cl, 2
+    mov dh, 0
+    ;mov dl, 0x80
+    mov bx, 0x8000
+    int 0x13
+
+    jc disk_error
+
+    mov si, success_msg
+    call print_string
+
     mov ax, 0x9000
     mov ss, ax
     mov sp, 0xFFFF
@@ -19,8 +37,13 @@ start:
     or eax, 1
     mov cr0, eax
 
-    ;entter 32-bit mode
+    ;enter 32-bit mode
     jmp CODE_SEG:protected_mode_start
+
+disk_error:
+    mov si, error_msg
+    call print_string
+    jmp $
 
 [BITS 32]
 protected_mode_start:
@@ -32,9 +55,18 @@ protected_mode_start:
     mov gs, ax
 
     mov esp, 0x90000
-    call clear_screen
-    mov esi, protected_msg
-    call print_string_pm
+
+    mov dword [0xB8000], 0x4F4F4F4A
+    mov ecx, 0x1000000
+
+delay:
+    loop delay
+
+    jmp 0x8000
+
+    ;call clear_screen
+    ;mov esi, protected_msg
+    ;call print_string_pm
     jmp $
 
 [BITS 16]
@@ -114,6 +146,9 @@ DATA_SEG equ gdt_data - gdt_start
 
 hello_msg db 'AcornOS Lives!!!!!', 13, 10, 0
 protected_msg db 'Protected Mode is active', 0
+loading_msg db 'Loading kernel', 13,10,0
+success_msg db 'Kernel loaded! Switching to protected mode', 13,10,0
+error_msg db 'Disk error', 13, 10, 0
 
 times 510-($-$$) db 0
 dw 0xAA55
