@@ -49,7 +49,7 @@ void _start() {
     
     println("Testing printf functionality:");
     printf("Character: %c\n", 'A');
-    printf("String: %s\n", "Hello, World!");
+    printf("String: %s\n", "This is some text on this screen");
     printf("Decimal: %d\n", 42);
     printf("Hexadecimal: %x\n", 255);
     
@@ -60,24 +60,6 @@ void _start() {
 
     set_cur(0, 20);
     println("Back to column 0, row 20");
-    
-    println("Testing scrolling - watch lines appear slowly:");
-    println("(Each line will pause for 2 seconds)");
-    println("");
-
-    println("Testing scrolling - debug version:");
-    println("About to start loop...");
-
-    for (int i = 0; i < 5; i++) {  // Start with just 5 lines
-    print("Line ");
-    printf("%d", i);
-    println(" - This should cause scrolling");
-    
-    // Long delay
-    for (volatile int delay = 0; delay < 50000000; delay++);
-}
-
-    println("Loop finished!");
     
     while(1) {
         __asm__ volatile("hlt");
