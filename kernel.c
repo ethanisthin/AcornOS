@@ -1,3 +1,4 @@
+/* Definitions */
 #define WIDTH 80
 #define HEIGHT 25
 #define MEM_SPACE 0xB8000
@@ -17,10 +18,47 @@
 #define VGA_COLOUR_LIGHT_MAGENTA 13
 #define VGA_COLOUR_LIGHT_BROWN 14
 #define VGA_COLOUR_WHITE 15
+#define IDT_ENTRIES 256
 
+/* Struct Definitions */
+struct idt_entry{
+    unsigned short base_high;
+    unsigned short base_low;
+    unsigned short selector;
+    unsigned char zero;
+    unsigned char flags;
+} __attribute__((packed));
+
+struct idt_descriptor {
+    unsigned short limit;
+    unsigned int base;
+} __attribute__((packed));
+
+
+/* Struct Declarations */
+struct idt_entry idt[IDT_ENTRIES];
+struct idt_descriptor idt_desc;
+
+/* Global Variables */
 static int cur_x = 0;
 static int cur_y = 0;
 static unsigned char curr_clr = 0x0F;
+
+/* Function Declarations */
+void idt_set_gate(unsigned char num, unsigned int base, unsigned short selector, unsigned char flags);
+void idt_install();
+extern void idt_load();
+unsigned char vga_colour(unsigned char fg, unsigned char bg);
+unsigned short vga_entry(unsigned char c, unsigned char colour);
+void clr_scr();
+void set_cur(int x, int y);
+void set_colour(unsigned char fg, unsigned char bg);
+void scroll_up();
+void enter_char(char c);
+void print(const char* str);
+void println(const char* str);
+void printf(const char* format, ...);
+
 
 void _start() {
     __asm__ volatile("mov $0x90000, %esp");
@@ -60,6 +98,11 @@ void _start() {
 
     set_cur(0, 20);
     println("Back to column 0, row 20");
+
+    set_colour(VGA_COLOUR_LIGHT_GREEN, VGA_COLOUR_BLACK);
+    println("IDT Setup in progress....");
+    idt_install();
+    println("Install successful");
     
     while(1) {
         __asm__ volatile("hlt");
@@ -227,4 +270,22 @@ void printf(const char* format, ...) {
                 break;
         }
     }
+}
+
+void idt_set_gate(unsigned char num, unsigned int base, unsigned short selector, unsigned char flags){
+    idt[num].base_high = (base >> 16) & 0xFFFF;
+    idt[num].base_low = (base & 0xFFFF);
+    idt[num].selector = selector;
+    idt[num].zero = 0;
+    idt[num].flags = flags;
+}
+
+void idt_install(){
+    idt_desc.limit = (sizeof(struct idt_entry) * IDT_ENTRIES) - 1;
+    idt_desc.base = (unsigned int)&idt;
+
+    for (int i=0; i<IDT_ENTRIES; i++){
+        idt_set_gate(i,0,0,0);
+    }
+    idt_load();
 }
