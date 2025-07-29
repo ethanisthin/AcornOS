@@ -19,6 +19,20 @@
 #define VGA_COLOUR_LIGHT_BROWN 14
 #define VGA_COLOUR_WHITE 15
 #define IDT_ENTRIES 256
+#define PIC1_COMMAND 0x20
+#define PIC1_DATA 0x21
+#define PIC2_COMMAND 0xA0
+#define PIC2_DATA 0xA1
+#define ICW1_ICW4 0x01
+#define ICW1_SINGLE 0x02
+#define ICW1_INTERVAL4 0x04
+#define ICW1_LEVEL 0x08
+#define ICW1_INIT 0x10
+#define ICW4_8086 0x01
+#define ICW4_AUTO 0x02
+#define ICW4_BUF_SLAVE 0x08
+#define ICW4_BUF_MASTER 0x0C
+#define ICW4_SFNM 0x10
 
 /* Struct Definitions */
 struct idt_entry{
@@ -58,6 +72,11 @@ void enter_char(char c);
 void print(const char* str);
 void println(const char* str);
 void printf(const char* format, ...);
+void outb(unsigned short port, unsigned char val);
+unsigned char inb(unsigned short port);
+void pic_remapper(int off1, int off2);
+void disable_pic();
+
 
 
 void _start() {
@@ -102,7 +121,11 @@ void _start() {
     set_colour(VGA_COLOUR_LIGHT_GREEN, VGA_COLOUR_BLACK);
     println("IDT Setup in progress....");
     idt_install();
-    println("Install successful");
+    println("Install successful!");
+
+    println("PIC Setup in progress....");
+    pic_remapper(0x20, 0x28);
+    println("PIC config success!");
     
     while(1) {
         __asm__ volatile("hlt");
@@ -195,6 +218,56 @@ void println(const char* str) {
     enter_char('\n');
 }
 
+void idt_set_gate(unsigned char num, unsigned int base, unsigned short selector, unsigned char flags){
+    idt[num].base_high = (base >> 16) & 0xFFFF;
+    idt[num].base_low = (base & 0xFFFF);
+    idt[num].selector = selector;
+    idt[num].zero = 0;
+    idt[num].flags = flags;
+}
+
+void idt_install(){
+    idt_desc.limit = (sizeof(struct idt_entry) * IDT_ENTRIES) - 1;
+    idt_desc.base = (unsigned int)&idt;
+
+    for (int i=0; i<IDT_ENTRIES; i++){
+        idt_set_gate(i,0,0,0);
+    }
+    idt_load();
+}
+
+
+void outb(unsigned short port, unsigned char val){
+    __asm__ volatile("outb %0, %1": : "a"(val), "Nd"(port));
+}
+
+unsigned char inb(unsigned short port){
+    unsigned char ret;
+    __asm__ volatile("inb %1, %0" : "=a"(ret) : "Nd"(port));
+}
+
+void pic_remapper(int off1, int off2){
+    unsigned char a1, a2;
+    a1 = inb(PIC1_DATA);
+    a2 = inb(PIC2_DATA);
+
+    outb(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);
+    outb(PIC2_COMMAND, ICW1_INIT | ICW1_ICW4);
+    outb(PIC1_DATA, off1);
+    outb(PIC2_DATA, off2);
+    outb(PIC1_DATA, 4);
+    outb(PIC2_DATA, 2);
+    outb(PIC1_DATA, ICW4_8086);
+    outb(PIC2_DATA, ICW4_8086);
+    outb(PIC1_DATA, a1);
+    outb(PIC2_DATA, a2);
+}
+
+void disable_pic(){
+    outb(PIC1_DATA, 0xFF);
+    outb(PIC2_DATA, 0xFF);
+}
+
 void printf(const char* format, ...) {
     const char* traverse;
     unsigned int* arg = (unsigned int*)&format;
@@ -270,22 +343,4 @@ void printf(const char* format, ...) {
                 break;
         }
     }
-}
-
-void idt_set_gate(unsigned char num, unsigned int base, unsigned short selector, unsigned char flags){
-    idt[num].base_high = (base >> 16) & 0xFFFF;
-    idt[num].base_low = (base & 0xFFFF);
-    idt[num].selector = selector;
-    idt[num].zero = 0;
-    idt[num].flags = flags;
-}
-
-void idt_install(){
-    idt_desc.limit = (sizeof(struct idt_entry) * IDT_ENTRIES) - 1;
-    idt_desc.base = (unsigned int)&idt;
-
-    for (int i=0; i<IDT_ENTRIES; i++){
-        idt_set_gate(i,0,0,0);
-    }
-    idt_load();
 }
