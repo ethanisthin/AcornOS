@@ -91,6 +91,7 @@ extern void irq1_handler();
 void kbm_handler();
 void irq_handle_install(int, void(*)());
 void irq_handle_uninstall(int);
+void timer_handler();
 
 
 
@@ -123,12 +124,14 @@ void _start() {
     println("PIC config success!");
 
     println("Interrupt handler installing....");
+    irq_handle_install(0, timer_handler);
     irq_handle_install(1, kbm_handler);
     println("Keyboard interrupt installed!");
 
     println("Enabling kbm interrupt....");
     unsigned char mask = inb(PIC1_DATA);
     mask &= ~(1 << 1);
+    mask &= ~(1 << 0);
     outb(PIC1_DATA, mask);
     println("KBM interrupt enabled!");
 
@@ -297,6 +300,14 @@ void irq_handler(int irq){
         outb(PIC2_COMMAND, 0x20);
     }
     outb(PIC1_COMMAND, 0x20);
+}
+
+void timer_handler(){
+    static unsigned int tmr_ticks = 0;
+    tmr_ticks++;
+    if (tmr_ticks%100==0){
+
+    }
 }
 
 
