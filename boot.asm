@@ -25,10 +25,6 @@ start:
     mov si, success_msg
     call print_string
 
-    mov ax, 0x9000
-    mov ss, ax
-    mov sp, 0xFFFF
-
     cli  ;disable interrupts
 
     lgdt [gdt_descriptor]
