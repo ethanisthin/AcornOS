@@ -33,14 +33,18 @@
 #define ICW4_BUF_SLAVE 0x08
 #define ICW4_BUF_MASTER 0x0C
 #define ICW4_SFNM 0x10
+#define IRQ0 32
+#define IRQ1 33
+
+
 
 /* Struct Definitions */
 struct idt_entry{
-    unsigned short base_high;
     unsigned short base_low;
     unsigned short selector;
     unsigned char zero;
     unsigned char flags;
+    unsigned short base_high;
 } __attribute__((packed));
 
 struct idt_descriptor {
@@ -49,14 +53,20 @@ struct idt_descriptor {
 } __attribute__((packed));
 
 
+
+
 /* Struct Declarations */
 struct idt_entry idt[IDT_ENTRIES];
 struct idt_descriptor idt_desc;
+
+
 
 /* Global Variables */
 static int cur_x = 0;
 static int cur_y = 0;
 static unsigned char curr_clr = 0x0F;
+
+
 
 /* Function Declarations */
 void idt_set_gate(unsigned char num, unsigned int base, unsigned short selector, unsigned char flags);
@@ -76,11 +86,22 @@ void outb(unsigned short port, unsigned char val);
 unsigned char inb(unsigned short port);
 void pic_remapper(int off1, int off2);
 void disable_pic();
+extern void irq0_handler();
+extern void irq1_handler();
+void kbm_handler();
+void irq_handle_install(int, void(*)());
+void irq_handle_uninstall(int);
 
 
 
+
+
+
+
+/* Main Function */
 void _start() {
-    __asm__ volatile("mov $0x90000, %esp");
+    __asm__ volatile("cli");
+    // __asm__ volatile("mov $0x90000, %esp");
     
     set_colour(VGA_COLOUR_WHITE, VGA_COLOUR_BLACK);
     clr_scr();
@@ -89,34 +110,8 @@ void _start() {
     println("========================================");
     println("");
     
-    set_colour(VGA_COLOUR_LIGHT_GREEN, VGA_COLOUR_BLACK);
-    println("Testing colors and formatting:");
-    
-    set_colour(VGA_COLOUR_LIGHT_RED, VGA_COLOUR_BLACK);
-    print("Red text ");
-    
-    set_colour(VGA_COLOUR_LIGHT_BLUE, VGA_COLOUR_BLACK);
-    print("Blue text ");
-    
-    set_colour(VGA_COLOUR_MAGENTA, VGA_COLOUR_BLACK);
-    println("Yellow text");
-    
-    set_colour(VGA_COLOUR_WHITE, VGA_COLOUR_BLACK);
-    println("");
-    
-    println("Testing printf functionality:");
-    printf("Character: %c\n", 'A');
-    printf("String: %s\n", "This is some text on this screen");
-    printf("Decimal: %d\n", 42);
-    printf("Hexadecimal: %x\n", 255);
-    
-    println("");
-    println("Testing cursor positioning:");
-    set_cur(10, 15);
-    print("This text is at position (10, 15)");
-
-    set_cur(0, 20);
-    println("Back to column 0, row 20");
+    set_colour(VGA_COLOUR_BLUE, VGA_COLOUR_BLACK);
+    // println("This works!! -- no int");
 
     set_colour(VGA_COLOUR_LIGHT_GREEN, VGA_COLOUR_BLACK);
     println("IDT Setup in progress....");
@@ -126,12 +121,27 @@ void _start() {
     println("PIC Setup in progress....");
     pic_remapper(0x20, 0x28);
     println("PIC config success!");
+
+    println("Interrupt handler installing....");
+    irq_handle_install(1, kbm_handler);
+    println("Keyboard interrupt installed!");
+
+    println("Enabling kbm interrupt....");
+    unsigned char mask = inb(PIC1_DATA);
+    mask &= ~(1 << 1);
+    outb(PIC1_DATA, mask);
+    println("KBM interrupt enabled!");
+
+    println("Enabling interrupts....");
+    __asm__ volatile("sti");
+    println("Interrupts enabled!");
     
     while(1) {
         __asm__ volatile("hlt");
     }
 }
 
+/* BASIC SCREEN FUNCTIONS */
 unsigned char vga_colour(unsigned char fg, unsigned char bg){
     return fg|bg << 4;
 }
@@ -218,9 +228,10 @@ void println(const char* str) {
     enter_char('\n');
 }
 
+/* IDT STUFF */
 void idt_set_gate(unsigned char num, unsigned int base, unsigned short selector, unsigned char flags){
-    idt[num].base_high = (base >> 16) & 0xFFFF;
     idt[num].base_low = (base & 0xFFFF);
+    idt[num].base_high = (base >> 16) & 0xFFFF;
     idt[num].selector = selector;
     idt[num].zero = 0;
     idt[num].flags = flags;
@@ -233,10 +244,13 @@ void idt_install(){
     for (int i=0; i<IDT_ENTRIES; i++){
         idt_set_gate(i,0,0,0);
     }
+    idt_set_gate(IRQ0, (unsigned int)irq0_handler, 0x08, 0x8E); //timer interrupt
+    idt_set_gate(IRQ1, (unsigned int)irq1_handler, 0x08, 0x8E); //kbm interrupt
     idt_load();
 }
 
 
+/* PIC STUFF */
 void outb(unsigned short port, unsigned char val){
     __asm__ volatile("outb %0, %1": : "a"(val), "Nd"(port));
 }
@@ -244,6 +258,7 @@ void outb(unsigned short port, unsigned char val){
 unsigned char inb(unsigned short port){
     unsigned char ret;
     __asm__ volatile("inb %1, %0" : "=a"(ret) : "Nd"(port));
+    return ret;
 }
 
 void pic_remapper(int off1, int off2){
@@ -267,6 +282,42 @@ void disable_pic(){
     outb(PIC1_DATA, 0xFF);
     outb(PIC2_DATA, 0xFF);
 }
+
+
+/* IRQ STUFF */
+
+void* irq_routine[16] = {0};
+
+void irq_handler(int irq){
+    void (*handler)() = irq_routine[irq];
+    if (handler){
+        handler();
+    }
+    if (irq>=8){
+        outb(PIC2_COMMAND, 0x20);
+    }
+    outb(PIC1_COMMAND, 0x20);
+}
+
+
+void kbm_handler(){
+    unsigned char kbm_read = inb(0x60);
+    if (kbm_read < 128){
+        set_colour(VGA_COLOUR_CYAN, VGA_COLOUR_BLACK);
+        printf("Key pressed: 0x%x\n", kbm_read);
+        set_colour(VGA_COLOUR_WHITE, VGA_COLOUR_BLACK);
+    }
+}
+
+
+void irq_handle_install(int irq, void (*handler)()){
+    irq_routine[irq]=handler;
+}
+
+void irq_handle_uninstall(int irq){
+    irq_routine[irq]=0;
+}
+
 
 void printf(const char* format, ...) {
     const char* traverse;
