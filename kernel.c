@@ -1,3 +1,6 @@
+/* Libraries */
+#include <stddef.h>
+
 /* Definitions */
 #define WIDTH 80
 #define HEIGHT 25
@@ -35,7 +38,13 @@
 #define ICW4_SFNM 0x10
 #define IRQ0 32
 #define IRQ1 33
-
+#define MOD_SHIFT     (1 << 0)
+#define MOD_CTRL      (1 << 1)
+#define MOD_ALT       (1 << 2)
+#define MOD_CAPSLOCK  (1 << 3)
+#define KBD_DATA_PORT    0x60
+#define KBD_STATUS_PORT  0x64
+#define KBD_CMD_PORT     0x64
 
 
 /* Struct Definitions */
@@ -65,6 +74,7 @@ struct idt_descriptor idt_desc;
 static int cur_x = 0;
 static int cur_y = 0;
 static unsigned char curr_clr = 0x0F;
+static unsigned char kbd_modifiers = 0;
 
 
 
@@ -101,40 +111,23 @@ void irq_handle_uninstall(int);
 /* Main Function */
 void _start() {
     __asm__ volatile("cli");
-    // __asm__ volatile("mov $0x90000, %esp");
+    __asm__ volatile("mov $0x90000, %esp");
     
     set_colour(VGA_COLOUR_WHITE, VGA_COLOUR_BLACK);
     clr_scr();
-    
-    println("AcornOS Kernel");
-    println("========================================");
-    println("");
-    
-    set_colour(VGA_COLOUR_BLUE, VGA_COLOUR_BLACK);
-    // println("This works!! -- no int");
-
-    set_colour(VGA_COLOUR_LIGHT_GREEN, VGA_COLOUR_BLACK);
-    println("IDT Setup in progress....");
     idt_install();
-    println("Install successful!");
-
-    println("PIC Setup in progress....");
+    
     pic_remapper(0x20, 0x28);
-    println("PIC config success!");
+    outb(PIC1_DATA, inb(PIC1_DATA) & ~0x02);  
+    
+    while (inb(KBD_STATUS_PORT) & 0x02);     
+    outb(KBD_DATA_PORT, 0xF4);              
 
-    println("Interrupt handler installing....");
     irq_handle_install(1, kbm_handler);
-    println("Keyboard interrupt installed!");
-
-    println("Enabling kbm interrupt....");
-    unsigned char mask = inb(PIC1_DATA);
-    mask &= ~(1 << 1);
-    outb(PIC1_DATA, mask);
-    println("KBM interrupt enabled!");
-
-    println("Enabling interrupts....");
+    
     __asm__ volatile("sti");
-    println("Interrupts enabled!");
+    
+    println("Welcome!\n");
     
     while(1) {
         __asm__ volatile("hlt");
@@ -301,30 +294,65 @@ void irq_handler(int irq){
 
 
 void kbm_handler() {
-    unsigned char scancode = inb(0x60); 
-    static const char kbm_us_qwerty[128] = {
+    static const unsigned char kbm_normal[128] = {
         0,    0,   '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
         '\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',
         0,    'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',
         0,    '\\','z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/',  0,
         '*',  0,   ' ', 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-        0,   0,   0,   0,   0,   '-', 0,   0,   0,   '+', 0,   0,   0,
-        0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0
+        0,    0,   0,   0,   0,   '-', 0,   0,   0,   '+', 0,   0,   0,
+        0,    0,   0,   0,   0,   0,   0,   0,   0,   0,   0
     };
 
-    if (scancode < 0x80) {  
-        unsigned char ascii = kbm_us_qwerty[scancode];
-        set_colour(VGA_COLOUR_CYAN, VGA_COLOUR_BLACK);
-        if (ascii == 0) {
-            printf("Key press: scancode=0x%x (no ASCII)\n", scancode);
-        } else {
-            printf("Key press: scancode=0x%x, ASCII='%c'\n", scancode, ascii);
-        }
-        set_colour(VGA_COLOUR_WHITE, VGA_COLOUR_BLACK);
-    }
-    outb(0x20, 0x20);  
-}
+    static const unsigned char kbm_shift[128] = {
+        0,    0,   '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\b',
+        '\t', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n',
+        0,    'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~',
+        0,    '|', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?',  0,
+        '*',  0,   ' ', 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+        0,    0,   0,   0,   0,   '-', 0,   0,   0,   '+', 0,   0,   0,
+        0,    0,   0,   0,   0,   0,   0,   0,   0,   0,   0
+    };
 
+    unsigned char scancode = inb(0x60);
+
+    switch(scancode) {
+        case 0x2A: 
+        case 0x36: 
+            kbd_modifiers |= MOD_SHIFT;
+            goto end;
+        case 0xAA: 
+        case 0xB6: 
+            kbd_modifiers &= ~MOD_SHIFT;
+            goto end;
+        case 0x3A:
+            kbd_modifiers ^= MOD_CAPSLOCK;
+            goto end;   
+    }
+
+    if (scancode < 0x80) {
+        if (scancode >= sizeof(kbm_normal)) {
+            goto end;
+        }
+        int use_shifted = (kbd_modifiers & MOD_SHIFT);
+        
+
+        if ((kbd_modifiers & MOD_CAPSLOCK) && 
+            ((scancode >= 0x10 && scancode <= 0x1C) ||  
+             (scancode >= 0x1E && scancode <= 0x26) ||  
+             (scancode >= 0x2C && scancode <= 0x32))) { 
+            use_shifted ^= 1; 
+        }
+
+        char ascii = use_shifted ? kbm_shift[scancode] : kbm_normal[scancode];
+        if (ascii != 0) {
+            enter_char(ascii);
+        }
+    }
+
+end:
+    outb(0x20, 0x20);
+}
 
 void irq_handle_install(int irq, void (*handler)()){
     irq_routine[irq]=handler;
@@ -356,6 +384,7 @@ void printf(const char* format, ...) {
             }
             case 's': {
                 char* s = (char*)*arg;
+                if (s==NULL) s = "(null)";
                 print(s);
                 arg++;
                 break;
