@@ -16,7 +16,7 @@ os.bin: boot.bin kernel.bin
 	cat boot.bin kernel.bin > os.bin
 
 run: os.bin
-	qemu-system-x86_64 -drive format=raw,file=os.bin
+	qemu-system-x86_64 -drive format=raw,file=os.bin -d int -no-reboot
 
 clean:
 	rm -f *.bin *.o
