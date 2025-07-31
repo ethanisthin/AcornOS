@@ -91,7 +91,6 @@ extern void irq1_handler();
 void kbm_handler();
 void irq_handle_install(int, void(*)());
 void irq_handle_uninstall(int);
-void timer_handler();
 
 
 
@@ -124,14 +123,12 @@ void _start() {
     println("PIC config success!");
 
     println("Interrupt handler installing....");
-    irq_handle_install(0, timer_handler);
     irq_handle_install(1, kbm_handler);
     println("Keyboard interrupt installed!");
 
     println("Enabling kbm interrupt....");
     unsigned char mask = inb(PIC1_DATA);
     mask &= ~(1 << 1);
-    mask &= ~(1 << 0);
     outb(PIC1_DATA, mask);
     println("KBM interrupt enabled!");
 
@@ -302,22 +299,30 @@ void irq_handler(int irq){
     outb(PIC1_COMMAND, 0x20);
 }
 
-void timer_handler(){
-    static unsigned int tmr_ticks = 0;
-    tmr_ticks++;
-    if (tmr_ticks%100==0){
 
-    }
-}
+void kbm_handler() {
+    unsigned char scancode = inb(0x60); 
+    static const char kbm_us_qwerty[128] = {
+        0,    0,   '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
+        '\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',
+        0,    'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',
+        0,    '\\','z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/',  0,
+        '*',  0,   ' ', 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+        0,   0,   0,   0,   0,   '-', 0,   0,   0,   '+', 0,   0,   0,
+        0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0
+    };
 
-
-void kbm_handler(){
-    unsigned char kbm_read = inb(0x60);
-    if (kbm_read < 128){
+    if (scancode < 0x80) {  
+        unsigned char ascii = kbm_us_qwerty[scancode];
         set_colour(VGA_COLOUR_CYAN, VGA_COLOUR_BLACK);
-        printf("Key pressed: 0x%x\n", kbm_read);
+        if (ascii == 0) {
+            printf("Key press: scancode=0x%x (no ASCII)\n", scancode);
+        } else {
+            printf("Key press: scancode=0x%x, ASCII='%c'\n", scancode, ascii);
+        }
         set_colour(VGA_COLOUR_WHITE, VGA_COLOUR_BLACK);
     }
+    outb(0x20, 0x20);  
 }
 
 
