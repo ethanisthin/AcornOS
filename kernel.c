@@ -75,6 +75,8 @@ static int cur_x = 0;
 static int cur_y = 0;
 static unsigned char curr_clr = 0x0F;
 static unsigned char kbd_modifiers = 0;
+static int inp_start_x = 0;
+static int inp_start_y = 0;
 
 
 
@@ -101,6 +103,8 @@ extern void irq1_handler();
 void kbm_handler();
 void irq_handle_install(int, void(*)());
 void irq_handle_uninstall(int);
+void mark_inp_start();
+int is_before_inp_start();
 
 
 
@@ -128,6 +132,8 @@ void _start() {
     __asm__ volatile("sti");
     
     println("Welcome!\n");
+
+    mark_inp_start();
     
     while(1) {
         __asm__ volatile("hlt");
@@ -192,17 +198,28 @@ void enter_char(char c){
         cur_x = (cur_x + 8) & ~(8 - 1);
     } else if (c == '\b') {
         if (cur_x > 0) {
-            cur_x--;
-            vid_mem[cur_y*WIDTH + cur_x] = vga_entry(' ', curr_clr);
-        } else if (cur_y > 0){
-            cur_y--;
-            cur_x = WIDTH - 1;
-            while (cur_x > 0 &&  (vid_mem[cur_y*WIDTH+cur_x] & 0xFF) == ' '){
+            int x_temp = cur_x - 1;
+            int y_temp = cur_y;
+            if (y_temp > inp_start_y || (y_temp == inp_start_y && x_temp >= inp_start_x)){
                 cur_x--;
+                vid_mem[cur_y*WIDTH + cur_x] = vga_entry(' ', curr_clr);
             }
-            cur_x++;
-            if (cur_x >= WIDTH){
+            
+        } else if (cur_y > 0){
+            int y_temp = cur_y - 1;
+            if (y_temp > inp_start_y || (y_temp == inp_start_y)){
+                cur_y--;
                 cur_x = WIDTH - 1;
+                while (cur_x > 0 &&  (vid_mem[cur_y*WIDTH+cur_x] & 0xFF) == ' '){
+                    cur_x--;
+                }
+                cur_x++;
+                if (cur_x >= WIDTH){
+                    cur_x = WIDTH - 1;
+                }
+                if (cur_y == inp_start_y && cur_x < inp_start_x){
+                    cur_x = inp_start_x;
+                }
             }
         }
     } else {
@@ -217,6 +234,9 @@ void enter_char(char c){
     
     if (cur_y >= HEIGHT) {
         scroll_up();
+        if (inp_start_y > 0){
+            inp_start_y--;
+        }
     }
 }
 
@@ -230,6 +250,22 @@ void print(const char* str) {
 void println(const char* str) {
     print(str);
     enter_char('\n');
+}
+
+void mark_inp_start(){
+    inp_start_x = cur_x;
+    inp_start_y = cur_y;
+}
+
+int is_before_inp_start(){
+    if (cur_y < inp_start_y){
+        return 1;
+    }
+
+    if (cur_y == inp_start_y && cur_x <= inp_start_x){
+        return 1;
+    }
+    return 0;
 }
 
 /* IDT STUFF */
