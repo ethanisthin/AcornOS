@@ -193,6 +193,17 @@ void enter_char(char c){
     } else if (c == '\b') {
         if (cur_x > 0) {
             cur_x--;
+            vid_mem[cur_y*WIDTH + cur_x] = vga_entry(' ', curr_clr);
+        } else if (cur_y > 0){
+            cur_y--;
+            cur_x = WIDTH - 1;
+            while (cur_x > 0 &&  (vid_mem[cur_y*WIDTH+cur_x] & 0xFF) == ' '){
+                cur_x--;
+            }
+            cur_x++;
+            if (cur_x >= WIDTH){
+                cur_x = WIDTH - 1;
+            }
         }
     } else {
         vid_mem[cur_y * WIDTH + cur_x] = vga_entry(c, curr_clr);
