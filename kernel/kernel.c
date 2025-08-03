@@ -3,6 +3,7 @@
 #include "interrupts.h"
 #include "io.h"
 #include "kbm.h"
+#include "shell.h"
 
 void _start() {
     __asm__ volatile("cli");
@@ -22,8 +23,7 @@ void _start() {
     
     __asm__ volatile("sti");
     
-    println("Welcome!\n");
-    mark_inp_start();
+    shell_init();
     
     while(1) {
         __asm__ volatile("hlt");
