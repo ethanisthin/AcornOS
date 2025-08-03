@@ -1,4 +1,4 @@
-KERNEL_SRC = kernel/kernel.c kernel/vga.c kernel/interrupts.c kernel/io.c kernel/kbm.c
+KERNEL_SRC = kernel/kernel.c kernel/vga.c kernel/interrupts.c kernel/io.c kernel/kbm.c kernel/shell.c
 KERNEL_OB = $(KERNEL_SRC:.c=.o)
 
 all: os.bin
