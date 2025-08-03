@@ -1,6 +1,7 @@
 #include "kbm.h"
 #include "vga.h"
 #include "io.h"
+#include "shell.h"
 
 static unsigned char kbd_modifiers = 0;
 
@@ -57,7 +58,7 @@ void kbm_handler() {
 
         char ascii = use_shifted ? kbm_shift[scancode] : kbm_normal[scancode];
         if (ascii != 0) {
-            enter_char(ascii);
+            shell_process_char(ascii);
         }
     }
 
