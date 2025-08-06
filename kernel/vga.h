@@ -20,6 +20,9 @@
 #define VGA_COLOUR_WHITE 15
 #define MEM_SPACE 0xB8000
 
+#define WIDTH 80
+#define HEIGHT 25
+
 /* Function Declarations */
 
 unsigned char vga_colour(unsigned char fg, unsigned char bg);
@@ -34,5 +37,6 @@ void println(const char* str);
 void printf(const char* format, ...);
 void mark_inp_start();
 int is_before_inp_start();
+void update_cursor();
 
 #endif
