@@ -106,7 +106,7 @@ static void help_cmd() {
 
 static void clear_cmd() {
     clr_scr();
-    shell_print_prompt();
+    // shell_print_prompt();
 }
 
 static void echo_cmd(char* text) {
@@ -121,21 +121,27 @@ void execute_command(char* input) {
     
     if (str_compare(input, "help") == 0) {
         help_cmd();
+        return;
     } 
     else if (str_compare(input, "clear") == 0) {
         clear_cmd();
+        return;
     }
     else if (str_ncmp(input, "echo ", 5) == 0) {
         echo_cmd(input + 5);
+        return;
     }
     else if (str_compare(input, "history") == 0) {
         show_history();
+        return;
     }
     else {
         println("");
         print("Unknown command: ");
         println(input);
+        return;
     }
+    shell_print_prompt();
 }
 
 void shell_process_char(char c) {
@@ -161,9 +167,10 @@ void shell_process_char(char c) {
 }
 
 void shell_print_prompt() {
-    mark_inp_start();
+    // mark_inp_start();
     print("@AcornOS:~$ \n");
-    mark_inp_start();
+    // mark_inp_start();
+    update_cursor();
 }
 
 void shell_init() {
