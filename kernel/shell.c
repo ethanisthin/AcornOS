@@ -150,16 +150,20 @@ void shell_process_char(char c) {
         if (input_pos > 0) {
             input_pos--;
             enter_char(c);
+            update_cursor();
         }
     }
     else if (input_pos < MAX_INPUT - 1) {
         input_buffer[input_pos++] = c;
         enter_char(c);
+        update_cursor();
     }
 }
 
 void shell_print_prompt() {
-    print("> ");
+    mark_inp_start();
+    print("@AcornOS:~$ \n");
+    mark_inp_start();
 }
 
 void shell_init() {
