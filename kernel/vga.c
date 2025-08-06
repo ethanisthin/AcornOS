@@ -26,12 +26,14 @@ void clr_scr(){
 
     cur_x=0;
     cur_y=0;
+    update_cursor();
 }
 
 void set_cur(int x, int y){
     if (x>=0 && x<WIDTH && y>=0 && y<HEIGHT){
         cur_x = x;
         cur_y = y;
+        update_cursor();
     }
 }
 
@@ -51,6 +53,7 @@ void scroll_up(){
     }
 
     cur_y = HEIGHT-1;
+    update_cursor();
 }
 
 void enter_char(char c){
@@ -105,6 +108,7 @@ void enter_char(char c){
             inp_start_y--;
         }
     }
+    update_cursor();
 }
 
 void print(const char* str) {
@@ -122,6 +126,7 @@ void println(const char* str) {
 void mark_inp_start(){
     inp_start_x = cur_x;
     inp_start_y = cur_y;
+    update_cursor();
 }
 
 int is_before_inp_start(){
@@ -133,4 +138,13 @@ int is_before_inp_start(){
         return 1;
     }
     return 0;
+}
+
+void update_cursor() {
+    unsigned short pos = cur_y * WIDTH + cur_x;
+    
+    outb(0x3D4, 0x0F);
+    outb(0x3D5, (unsigned char)(pos & 0xFF));
+    outb(0x3D4, 0x0E);
+    outb(0x3D5, (unsigned char)((pos >> 8) & 0xFF));
 }
