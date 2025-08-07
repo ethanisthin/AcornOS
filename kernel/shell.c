@@ -106,12 +106,10 @@ static void help_cmd() {
 
 static void clear_cmd() {
     clr_scr();
-    // shell_print_prompt();
 }
 
 static void echo_cmd(char* text) {
-    println("");
-    println(text);
+    print(text);
 }
 
 void execute_command(char* input) {
@@ -146,11 +144,9 @@ void execute_command(char* input) {
 
 void shell_process_char(char c) {
     if (c == '\n') {
-        enter_char('\n');
         input_buffer[input_pos] = '\0';
         execute_command(input_buffer);
         input_pos = 0;
-        shell_print_prompt();
     } 
     else if (c == '\b') {
         if (input_pos > 0) {
@@ -167,9 +163,7 @@ void shell_process_char(char c) {
 }
 
 void shell_print_prompt() {
-    // mark_inp_start();
-    print("@AcornOS:~$ \n");
-    // mark_inp_start();
+    println("@AcornOS:~$ ");
     update_cursor();
 }
 
@@ -178,6 +172,6 @@ void shell_init() {
     history_pos = 0;
     history_count = 0;
     clr_scr();
-    println("AcornOS v0.1 - Type 'help' for commands");
+    print("AcornOS v0.1 - Type 'help' for commands\n");
     shell_print_prompt();
 }
