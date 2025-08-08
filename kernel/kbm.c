@@ -62,5 +62,5 @@ void kbm_handler() {
     }
 
 end:
-    outb(0x20, 0x20); 
+    return; 
 }
