@@ -4,6 +4,7 @@
 #include "io.h"
 #include "kbm.h"
 #include "shell.h"
+#include "../filesystem/fat12.h"
 
 void _start() {
     __asm__ volatile("cli");
@@ -22,7 +23,7 @@ void _start() {
     irq_handle_install(1, kbm_handler);
     
     __asm__ volatile("sti");
-    
+    fat12_init();
     shell_init();
     
     while(1) {
