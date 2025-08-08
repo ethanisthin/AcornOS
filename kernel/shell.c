@@ -26,13 +26,10 @@ static void help_cmd();
 static void clear_cmd();
 static void echo_cmd(char* text);
 static void ls_cmd();
+static void fs_test_cmd();
 static void cat_cmd(char* filename);
 static void touch_cmd(char* filename);
-static void disk_cmd();
-static void write_cmd(char* args);
-static void rm_cmd(char* filename);
 
-// String helpers
 static int str_len(const char* str) {
     int len = 0;
     while (str[len]) len++;
@@ -110,22 +107,22 @@ static void help_cmd() {
     println("history  - Show command history");
     println("ls       - List files");
     println("cat      - Display file contents");
-    println("create    - Create empty file");
-    println("write    - write text to file (<filename> text)");
-    println("rm       - Delete file");
-    println("diskinfo - Show disk information");
+    println("touch    - Create empty file");
+    println("fstest   - Test file system");
 }
 
 static void clear_cmd() {
     clr_scr();
+    shell_print_prompt();
 }
 
 static void echo_cmd(char* text) {
+    print("\n");
     print(text);
 }
 
 static void ls_cmd() {
-    static struct fat12_dir_entry entries[32];
+    struct fat12_dir_entry entries[32];
     int count = fat12_list_directory(entries, 32);
     
     if (count < 0) {
@@ -143,34 +140,62 @@ static void ls_cmd() {
         for (int j = 0; j < 8 && entries[i].filename[j] != ' '; j++) {
             enter_char(entries[i].filename[j]);
         }
+        
         if (entries[i].extension[0] != ' ') {
             enter_char('.');
             for (int j = 0; j < 3 && entries[i].extension[j] != ' '; j++) {
                 enter_char(entries[i].extension[j]);
             }
         }
+        
         print(" (");
         print_int(entries[i].file_size);
         println(" bytes)");
     }
 }
 
-static void disk_cmd(){
-    println("\n--- Disk Info ---");
-    if (!fat12_is_initialized()){
+static void fs_test_cmd() {
+    println("\n FAT12 test");
+    
+    if (fat12_is_initialized()) {
+        println("File system initialized");
+    } else {
         println("File system not initialized");
         return;
     }
-    println("Total capacity: 1.44 MB");
     
-    static struct fat12_dir_entry entries[32];
-    int file_count = fat12_list_directory(entries, 32);
-    if (file_count >= 0) {
-        print("Files in root: ");
-        print_int(file_count);
-        println("");
+    print("Testing directory listing... ");
+    struct fat12_dir_entry entries[10];
+    int count = fat12_list_directory(entries, 10);
+    if (count >= 0) {
+        println("Success");
+        print("Found ");
+        print_int(count);
+        println(" entries");
+    } else {
+        println("Failed");
     }
-
+    
+    print("Testing file read... ");
+    char buffer[64];
+    int bytes_read = fat12_read_file("test.txt", buffer, 63);
+    if (bytes_read > 0) {
+        buffer[bytes_read] = '\0';
+        println("Success");
+        print("Content: ");
+        println(buffer);
+    } else {
+        println("Failed or file not found");
+    }
+    
+    print("Testing file creation... ");
+    if (fat12_create_file("newfile.txt", 0x20) == 0) {
+        println("Success");
+    } else {
+        println("Failed");
+    }
+    
+    println("Test Complete");
 }
 
 static void cat_cmd(char* filename) {
@@ -179,7 +204,7 @@ static void cat_cmd(char* filename) {
         return;
     }
     
-    static char buffer[512];
+    char buffer[512];
     int bytes_read = fat12_read_file(filename, buffer, 511);
     
     if (bytes_read < 0) {
@@ -213,69 +238,8 @@ static void touch_cmd(char* filename) {
     }
 }
 
-static void write_cmd(char* args) {
-    if (!args || args[0] == '\0') {
-        println("\nUsage: write <filename> <text>");
-        return;
-    }
-    
-    char* space_pos = args;
-    while (*space_pos && *space_pos != ' ') space_pos++;
-    
-    if (*space_pos == '\0') {
-        println("\nUsage: write <filename> <text>");
-        return;
-    }
-    
-    *space_pos = '\0';
-    char* filename = args;
-    char* content = space_pos + 1;
-
-    while (*content == ' ') {
-        content++;
-    }
-
-    if (*content == '\0') {
-        println("\nNo content to write");
-        *space_pos = ' ';
-        return;
-    }
-    
-    int len = str_len(content);
-    int bytes_written = fat12_write_file(filename, content, len);
-    
-    if (bytes_written > 0) {
-        print("\nWrote ");
-        print_int(bytes_written);
-        print(" bytes to ");
-        println(filename);
-    } else {
-        print("\nFailed to write to ");
-        println(filename);
-    }
-    
-    *space_pos = ' ';
-}
-
-static void rm_cmd(char* filename) {
-    if (!filename || filename[0] == '\0') {
-        println("\nUsage: rm <filename>");
-        return;
-    }
-    
-    if (fat12_delete_file(filename) == 0) {
-        print("\nDeleted file: ");
-        println(filename);
-    } else {
-        print("\nFailed to delete file: ");
-        println(filename);
-    }
-}
-
 void execute_command(char* input) {
-    if (str_len(input) == 0) {
-        return;
-    }
+    if (str_len(input) == 0) return;
     
     add_history(input);
     
@@ -295,37 +259,27 @@ void execute_command(char* input) {
     else if (str_compare(input, "ls") == 0) {
         ls_cmd();
     }
-    else if (str_compare(input, "diskinfo") == 0) {
-        disk_cmd();
+    else if (str_compare(input, "fstest") == 0) {
+        fs_test_cmd();
     }
     else if (str_ncmp(input, "cat ", 4) == 0) {
         cat_cmd(input + 4);
     }
-    else if (str_ncmp(input, "create ", 6) == 0) {
+    else if (str_ncmp(input, "touch ", 6) == 0) {
         touch_cmd(input + 6);
     }
-    else if (str_ncmp(input, "write ", 6) == 0) {
-        write_cmd(input + 6);
-    }
-    else if (str_ncmp(input, "rm ", 3) == 0) {
-        rm_cmd(input + 3);
-    }
-    else if (str_compare(input, "test") == 0) {
-        print("\nThis is a test command\n");
-    }
     else {
-        print("\nUnknown command: ");
+        println("");
+        print("Unknown command: ");
         print(input);
-        print("\n");
+        println("");
+        return;
     }
-    
     shell_print_prompt();
 }
 
-
 void shell_process_char(char c) {
     if (c == '\n') {
-        enter_char('\n');
         input_buffer[input_pos] = '\0';
         execute_command(input_buffer);
         input_pos = 0;
@@ -345,7 +299,7 @@ void shell_process_char(char c) {
 }
 
 void shell_print_prompt() {
-    print("@AcornOS:~$ ");
+    print("\n@AcornOS:~$ ");
     mark_inp_start();
     update_cursor();
 }
@@ -354,7 +308,7 @@ void shell_init() {
     input_pos = 0;
     history_pos = 0;
     history_count = 0;
-    //clr_scr();
+    clr_scr();
     print("AcornOS v0.1 - Type 'help' for commands\n");
     shell_print_prompt();
 }
