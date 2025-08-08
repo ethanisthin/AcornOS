@@ -1,6 +1,8 @@
 #ifndef VGA_H
 #define VGA_H
 
+#include "kernel.h"
+
 /* Defintions */
 #define VGA_COLOUR_BLACK 0
 #define VGA_COLOUR_BLUE 1
@@ -22,6 +24,11 @@
 
 #define WIDTH 80
 #define HEIGHT 25
+
+extern int cur_x;
+extern int cur_y;
+extern int inp_start_x;
+extern int inp_start_y;
 
 /* Function Declarations */
 
