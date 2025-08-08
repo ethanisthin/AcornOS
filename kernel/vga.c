@@ -1,5 +1,6 @@
 #include "vga.h"
 #include "kernel.h"
+#include "io.h"
 
 static int cur_x = 0;
 static int cur_y = 0;
