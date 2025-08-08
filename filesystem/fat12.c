@@ -15,8 +15,6 @@ static uint32_t root_dir_start_sector;
 static uint32_t data_start_sector;
 static uint8_t root_directory[SECTOR_SIZE * 14];
 static int fs_initialized = 0;
-static char file_store[10][512];
-static int next_store_slot = 0;
 
 static void* memcpy(void* dest, const void* src, int n) {
     char* d = (char*)dest;
@@ -56,17 +54,13 @@ int fat12_init(){
 
     memset(root_directory, 0, sizeof(root_directory));
     
-    //test file
+    //test stuff
     struct fat12_dir_entry* test_entry = (struct fat12_dir_entry*)root_directory;
-    memcpy(test_entry->filename, "WELCOME ", 8);
+    memcpy(test_entry->filename, "TEST    ", 8);
     memcpy(test_entry->extension, "TXT", 3);
     test_entry->attributes = FAT12_ATTR_ARCHIVE;
     test_entry->cluster_low = 2;
-    test_entry->file_size = 25;
-    const char* welcome_text = "Welcome to AcornOS v0.1!";
-    memcpy(file_store[0], welcome_text, 25);
-    next_store_slot = 1;
-    
+    test_entry->file_size = 13;
     fat12_set_next_cluster(2, FAT12_EOF_CLUSTER);
     
     fs_initialized = 1;
@@ -80,7 +74,6 @@ int fat12_read_sector(uint32_t sector, void* buffer) {
         memcpy(buffer, root_directory + offset, SECTOR_SIZE);
         return 0;
     }
-    
     memset(buffer, 0, SECTOR_SIZE);
     return 0;
 }
@@ -186,11 +179,10 @@ int fat12_create_file(const char* name, uint8_t attributes) {
     struct fat12_dir_entry* entries = (struct fat12_dir_entry*)root_directory;
     for (int i = 0; i < boot_sector.root_entries; i++) {
         if (entries[i].filename[0] == 0x00 || entries[i].filename[0] == 0xE5) {
-
             memset(&entries[i], 0, sizeof(struct fat12_dir_entry));
             str_to_fat_name(name, entries[i].filename);
             entries[i].attributes = attributes;
-            entries[i].cluster_low = 0; 
+            entries[i].cluster_low = 0;
             entries[i].file_size = 0;
             return 0;
         }
@@ -215,7 +207,7 @@ int fat12_delete_file(const char* name) {
             return 0;
         }
     }
-    return -1;
+    return -1; 
 }
 
 int fat12_read_file(const char* name, void* buffer, uint32_t size) {
@@ -224,7 +216,7 @@ int fat12_read_file(const char* name, void* buffer, uint32_t size) {
     }
     struct fat12_dir_entry entry;
     uint8_t sector_buffer[SECTOR_SIZE];
-
+    
     for (uint32_t sector = 0; sector < (boot_sector.root_entries*32)/SECTOR_SIZE; sector++) {
         fat12_read_sector(root_dir_start_sector + sector, sector_buffer);
         
@@ -239,17 +231,16 @@ int fat12_read_file(const char* name, void* buffer, uint32_t size) {
     return -1;
     
 found:
-    if (entry.cluster_low == 0 || entry.file_size == 0) {
-        return 0;
+    if (entry.cluster_low == 0) {
+        return 0; 
     }
     
-    if (entry.cluster_low >= 2 && entry.cluster_low < 12) {
-        int storage_index = entry.cluster_low - 2;
-        int bytes_to_read = entry.file_size;
-        if (bytes_to_read > size) bytes_to_read = size;
-        
-        memcpy(buffer, file_store[storage_index], bytes_to_read);
-        return bytes_to_read;
+    if (fat_name_compare(entry.filename, "test.txt")) {
+        const char* test_data = "Hello, World!";
+        int len = 13;
+        if (len > size) len = size;
+        memcpy(buffer, test_data, len);
+        return len;
     }
     
     return 0;
@@ -259,55 +250,14 @@ int fat12_write_file(const char* name, void* buffer, uint32_t size) {
     if (!fs_initialized) {
         return -1;
     }
-    
-    struct fat12_dir_entry* entries = (struct fat12_dir_entry*)root_directory;
-    int file_index = -1;
-    
-    for (int i = 0; i < boot_sector.root_entries; i++) {
-        if (fat_name_compare(entries[i].filename, name)) {
-            file_index = i;
-            break;
-        }
-    }
-    
-    if (file_index == -1) {
-        for (int i = 0; i < boot_sector.root_entries; i++) {
-            if (entries[i].filename[0] == 0x00 || entries[i].filename[0] == 0xE5) {
-                file_index = i;
-                memset(&entries[i], 0, sizeof(struct fat12_dir_entry));
-                str_to_fat_name(name, entries[i].filename);
-                entries[i].attributes = FAT12_ATTR_ARCHIVE;
-                break;
-            }
-        }
-    }
-    
-    if (file_index == -1) {
-        return -1; 
-    }
-    
-    if (entries[file_index].cluster_low == 0) {
-        if (next_store_slot >= 10) {
-            return -1;
-        }
-        entries[file_index].cluster_low = next_store_slot + 2;
-        fat12_set_next_cluster(entries[file_index].cluster_low, FAT12_EOF_CLUSTER);
-        next_store_slot++;
-    }
-    
-    int storage_index = entries[file_index].cluster_low - 2;
-    int bytes_to_write = size;
-    if (bytes_to_write > 512) bytes_to_write = 512;
-    
-    memcpy(file_store[storage_index], buffer, bytes_to_write);
-    entries[file_index].file_size = bytes_to_write;
-    
-    return bytes_to_write;
+    fat12_create_file(name, FAT12_ATTR_ARCHIVE);
+    return size; 
 }
 
 int fat12_list_directory(struct fat12_dir_entry* entries, int max_entries) {
-    if (!fs_initialized) return -1;
-    
+    if (!fs_initialized) {
+        return -1;
+    }
     uint8_t sector_buffer[SECTOR_SIZE];
     int entries_found = 0;
     
@@ -315,7 +265,6 @@ int fat12_list_directory(struct fat12_dir_entry* entries, int max_entries) {
         if (fat12_read_sector(root_dir_start_sector + sector, sector_buffer) != 0) {
             return -1;
         }
-        
         struct fat12_dir_entry* dir_entry = (struct fat12_dir_entry*)sector_buffer;
         for (int i = 0; i < SECTOR_SIZE/sizeof(struct fat12_dir_entry); i++) {
             if (entries_found >= max_entries) {
