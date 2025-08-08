@@ -2,15 +2,15 @@
 #include "kernel.h"
 #include "io.h"
 
-static int cur_x = 0;
-static int cur_y = 0;
-static unsigned char curr_clr = 0x0F;
-static int inp_start_x = 0;
-static int inp_start_y = 0;
+int cur_x = 0;
+int cur_y = 0;
+unsigned char curr_clr = 0x0F;
+int inp_start_x = 0;
+int inp_start_y = 0;
 
 /* BASIC SCREEN FUNCTIONS */
 unsigned char vga_colour(unsigned char fg, unsigned char bg){
-    return fg|bg << 4;
+    return (fg&0x0F)|((bg&0x0F) << 4);
 }
 
 unsigned short vga_entry(unsigned char c, unsigned char colour){
