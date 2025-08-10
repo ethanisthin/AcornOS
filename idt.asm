@@ -5,7 +5,7 @@ global irq0_handler
 global irq1_handler
 
 extern idt_desc
-extern irq_handler ; C function: void irq_handler(int irq)
+extern irq_handler 
 
 idt_load:
     lidt [idt_desc]
