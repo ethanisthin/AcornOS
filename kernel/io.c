@@ -10,6 +10,16 @@ unsigned char inb(unsigned short port){
     return ret;
 }
 
+void outw(unsigned short port, unsigned short val){
+    __asm__ volatile("outw %0, %1": : "a"(val), "Nd"(port));
+}
+
+unsigned short inw(unsigned short port){
+    unsigned short ret;
+    __asm__ volatile("inw %1, %0" : "=a"(ret) : "Nd"(port));
+    return ret;
+}
+
 void pic_remapper(int off1, int off2){
     unsigned char a1, a2;
     a1 = inb(PIC1_DATA);
