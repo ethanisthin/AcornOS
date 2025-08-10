@@ -51,11 +51,10 @@ make run  # Launch in QEMU
 AcornOS/
 ├── boot.asm          # Bootloader
 ├── kernel.c          # Main kernel
+├── filesystem/       # FAT12 filesystem implementation
 ├── Makefile          # Build system
 └── README.md
 ```
-
-
 ## Notes
 - Contributions and suggestions welcome!
 
