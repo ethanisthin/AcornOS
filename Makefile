@@ -10,7 +10,7 @@ idt.o: idt.asm
 	nasm -f elf32 idt.asm -o idt.o
 
 %.o: %.c
-	gcc -m32 -c $< -o $@ -ffreestanding -fno-pie -nostdlib -nostartfiles -nodefaultlibs -fno-stack-protector -O0 -fno-builtin -Ikernel -Ifilesystem
+	gcc -m32 -c $< -o $@ -ffreestanding -fno-pie -nostdlib -nostartfiles -nodefaultlibs -fno-stack-protector -O0 -fno-builtin -Ikernel -Ifilesystem -g
 
 kernel.bin: $(KERNEL_OB) idt.o
 	ld -m elf_i386 -Ttext 0x8000 --oformat binary -o kernel.bin $(KERNEL_OB) idt.o -e _start --strip-all
@@ -19,7 +19,7 @@ os.bin: boot.bin kernel.bin
 	cat boot.bin kernel.bin > os.bin
 
 run: os.bin
-	qemu-system-x86_64 -k en-us -drive format=raw,file=os.bin -d int -no-reboot
+	qemu-system-x86_64 -k en-us -drive format=raw,file=os.bin -d int -no-reboot -display vnc=:0
 
 clean:
 	rm -f *.bin *.o kernel/*.o filesystem/*.o
