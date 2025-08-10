@@ -69,5 +69,6 @@ int fat12_read_file(const char* name, void* buffer, uint32_t size);
 int fat12_write_file(const char* name, void* buffer, uint32_t size);
 int fat12_list_directory(struct fat12_dir_entry* entries, int max_entries);
 int fat12_is_initialized();
+int fat12_sync();
 
 #endif
