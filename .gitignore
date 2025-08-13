@@ -1,0 +1,52 @@
+# Object files
+*.o
+*.obj
+
+# Executables
+*.exe
+*.out
+
+# Disk images
+*.img
+*.iso
+
+# Build directories
+build/
+bin/
+obj/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Log files
+*.log
+
+# Editor/IDE files
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# QEMU temporary files and states
+*.qcow2
+*.vmdk
+*.vdi
+*.vmem
+*.nvram
+*.vmss
+*.vmsn
+*.lck
+*.pid
+*.sock
+
+# Debug files
+*.dSYM/
+gdb_history
+
+# CMake build artifacts (if used)
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
