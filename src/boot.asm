@@ -87,6 +87,10 @@ enable_a20:
 .a20_done:
     ret
 
+
+
+
+
 [bits 32]
 start_protected_mode:
     mov ax, DATA_SEG
@@ -97,12 +101,38 @@ start_protected_mode:
     mov gs, ax
 
     mov esp, 0x90000
+    and esp, 0xFFFFFFF0
 
-    mov ecx, [0x5000]  
-    test ecx, ecx
-    jz .no_memory
+    call setup_paging
 
+    mov dword [0xB8000], 0x2F4B2F4F
     jmp $
+
+setup_paging:
+    mov edi, 0x1000
+    mov cr3, edi
+    xor eax, eax
+    mov ecx, 1024
+    rep stosd
+
+    mov dword [0x1000], 0x2000 | 0b11
+
+    mov edi, 0x2000
+    mov eax, 0x00000003
+    mov ecx, 1024
+.fill_pt:
+    mov [edi], eax
+    add eax, 0x1000
+    add edi, 4
+    loop .fill_pt
+
+    mov eax, cr0
+    or eax, 0x80000000
+    mov cr0, eax
+    ret
+
+
+
 
 .no_memory:
     mov word [0xB8000], 0x4F4D
