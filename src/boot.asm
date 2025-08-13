@@ -6,7 +6,6 @@ bits 16
 start:
     jmp main
 
-
 puts:
     push si
     push ax
@@ -36,14 +35,23 @@ main:
     mov es, ax
     mov ss, ax
     mov sp, 0x7C00
+
+    mov [boot_drive], dl
+
     mov si, msg_hello
     call puts
+    cli
     hlt
 
 .halt:
     jmp .halt
 
-msg_hello: db 'AcornOS Lives Again!!!!', ENDL, 0
+boot_drive: db 0
+msg_hello: db 'AcornOS Lives Again!!!! (from a hard disk)', ENDL, 0
 
-times 510-($-$$) db 0
+times 446-($-$$) db 0
+
+db 0x80
+times 15 db 0
+times 16*3 db 0
 dw 0AA55h
