@@ -88,6 +88,47 @@ enable_a20:
     ret
 
 
+load_kernel:
+    mov ebx, 0x100000
+    mov eax, 2048
+    mov ecx, 128
+    
+    mov dword [.dap + 8], eax
+    mov dword [.dap + 4], ebx
+    mov dword [.dap + 2], ecx
+
+    jmp 0x18:.bits16
+    
+bits 16
+.bits16:
+    mov ax, 0
+    mov ds, ax
+    mov ss, ax
+
+    mov dl, [boot_drive]
+    mov si, .dap
+    mov ah, 0x42
+    int 0x13
+    jc .error
+
+    jmp CODE_SEG:.bits32
+
+
+bits 32
+.bits32:
+    ret
+
+.error:
+    mov dword [0xB8000], 0x4F524F45
+    jmp $
+
+.dap:
+    db 0x10
+    db 0
+    dw 0
+    dd 0
+    dd 0
+    dq 0
 
 
 
@@ -99,13 +140,17 @@ start_protected_mode:
     mov es, ax
     mov fs, ax
     mov gs, ax
+    mov esp, 0x7C00
+    
+    mov dword [0xB8000], 0x2F4B2F4F 
+    jmp $
 
-    mov esp, 0x90000
-    and esp, 0xFFFFFFF0
+.disk_error:
+    mov dword [0xB8000], 0x4F444F45
+    jmp $
 
-    call setup_paging
-
-    mov dword [0xB8000], 0x2F4B2F4F
+.bad_kernel:
+    mov dword [0xB8000], 0x4F4B4F42
     jmp $
 
 setup_paging:
@@ -131,7 +176,7 @@ setup_paging:
     mov cr0, eax
     ret
 
-
+    jmp $
 
 
 .no_memory:
@@ -143,7 +188,6 @@ msg_hello: db 'AcornOS: Entering Protected Mode...', ENDL, 0
 
 gdt_start:
     dq 0x0             
-
 gdt_code:              
     dw 0xFFFF          
     dw 0x0             
@@ -151,7 +195,6 @@ gdt_code:
     db 10011010b       
     db 11001111b       
     db 0x0             
-
 gdt_data:              
     dw 0xFFFF          
     dw 0x0             
@@ -159,7 +202,13 @@ gdt_data:
     db 10010010b       
     db 11001111b       
     db 0x0             
-
+gdt_code16:            
+    dw 0xFFFF
+    dw 0x0
+    db 0x0
+    db 10011010b
+    db 00001111b  
+    db 0x0
 gdt_end:
 
 gdt_descriptor:
@@ -168,16 +217,16 @@ gdt_descriptor:
 
 CODE_SEG equ gdt_code - gdt_start
 DATA_SEG equ gdt_data - gdt_start
+CODE16_SEG equ gdt_code16 - gdt_start
 
 times 446-($-$$) db 0
 
-db 0x80                
-db 0x00, 0x01, 0x00    
-db 0x06                
-db 0x00, 0x01, 0x00    
-dd 0x00000001          
-dd 0x00000020          
+db 0x80             
+db 0x01, 0x01, 0x00 
+db 0x06             
+db 0xFF, 0xFF, 0xFF 
+dd 0x00000001       
+dd 0x00000020       
 
 times 16*3 db 0
-
 dw 0xAA55
