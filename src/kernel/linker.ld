@@ -5,6 +5,7 @@ SECTIONS {
 
     .text : {
         *(.text)
+        *(.rodata)
     }
 
     .data : {
@@ -14,5 +15,10 @@ SECTIONS {
     .bss : {
         *(COMMON)
         *(.bss)
+    }
+
+    /DISCARD/ : {
+        *(.eh_frame)
+        *(.comment)
     }
 }
