@@ -1,10 +1,7 @@
-ENTRY(_start)
+ENTRY(kernel_main)
 
 SECTIONS {
-    . = 0x100000; /* 1MB mark */
-    .multiboot : {
-        *(.multiboot)
-    }
+    . = 0x100000;
 
     .text : {
         *(.text)
