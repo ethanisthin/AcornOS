@@ -33,7 +33,7 @@ $(BUILD)/main_disk.img: $(BUILD)/stage1.bin $(BUILD)/stage2.bin $(BUILD)/kernel.
 	@dd if=/dev/zero of=build/main_disk.img bs=512 count=8192
 	@dd if=$(BUILD)/stage1.bin of=build/main_disk.img conv=notrunc
 	@dd if=$(BUILD)/stage2.bin of=build/main_disk.img conv=notrunc bs=512 seek=1 
-	@dd if=$(BUILD)/kernel.bin of=build/main_disk.img conv=notrunc bs=512 seek=2048 
+	@dd if=$(BUILD)/kernel.bin of=build/main_disk.img conv=notrunc bs=512 seek=5
 	@echo "Disk image created successfully"
 
 run: $(BUILD)/main_disk.img
