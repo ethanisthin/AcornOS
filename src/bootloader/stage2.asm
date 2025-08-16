@@ -46,7 +46,7 @@ load_kernel:
     xor bx, bx
     
     mov ah, 0x02
-    mov al, 25
+    mov al, 29
     mov ch, 0
     mov cl, 6
     mov dh, 0
@@ -76,7 +76,7 @@ enable_a20:
 dap:
     db 0x10
     db 0
-    dw 25
+    dw 29
     dw 0x0000
     dw 0x1000
     dq 5
