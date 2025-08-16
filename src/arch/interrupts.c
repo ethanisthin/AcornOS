@@ -2,12 +2,11 @@
 #include "../drivers/vga.h"
 #include "pic.h"
 #include "timer.h"
+#include "../drivers/keyboard.h"
 
-// IDT table and descriptor
 static idt_entry_t idt[IDT_ENTRIES];
 static idt_descriptor_t idt_desc;
 
-// Set up an IDT gate
 void idt_set_gate(uint8_t num, uint32_t handler, uint16_t selector, uint8_t flags) {
     idt[num].offset_low = handler & 0xFFFF;
     idt[num].offset_high = (handler >> 16) & 0xFFFF;
@@ -16,12 +15,9 @@ void idt_set_gate(uint8_t num, uint32_t handler, uint16_t selector, uint8_t flag
     idt[num].type_attr = flags;
 }
 
-// Load the IDT
 void idt_load(void) {
     idt_desc.limit = (sizeof(idt_entry_t) * IDT_ENTRIES) - 1;
     idt_desc.base = (uint32_t)&idt;
-    
-    // Load IDT using inline assembly
     __asm__ volatile ("lidt %0" : : "m" (idt_desc));
 }
 
@@ -29,8 +25,6 @@ void interrupt_handler(registers_t regs) {
     vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
                       "Interrupt %d received! Error code: %d\n", 
                       regs.int_no, regs.err_code);
-    
-    // Handle specific exceptions
     switch(regs.int_no) {
         case 0:
             vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
@@ -57,44 +51,34 @@ void interrupt_handler(registers_t regs) {
                               "Unhandled interrupt: %d\n", regs.int_no);
             break;
     }
-    
-    // For fatal exceptions, halt the system
-    if (regs.int_no <= 31) {  // CPU exceptions
+
+    if (regs.int_no <= 31) {  
         vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
                           "CPU Exception - System Halted!\n");
-        __asm__ volatile ("cli; hlt");  // Disable interrupts and halt
-        while(1);  // Infinite loop as backup
+        __asm__ volatile ("cli; hlt"); 
+        while(1); 
     }
 }
 
-// IRQ handler
 void irq_handler(registers_t regs) {
-    // Calculate the IRQ number (subtract 32 to get 0-15)
     uint8_t irq = regs.int_no - 32;
     
-    // Handle specific IRQs
     switch(irq) {
         case 0:
-            // Timer interrupt - call timer handler
             timer_handler();
             break;
         case 1:
-            vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                              "Keyboard interrupt!\n");
+            keyboard_handler();
             break;
         default:
             vga_printf_colored(VGA_COLOR_CYAN, VGA_COLOR_BLACK,
                               "Unhandled IRQ: %d\n", irq);
             break;
     }
-    
-    // Send End of Interrupt signal to PIC
     pic_send_eoi(irq);
 }
 
-// Initialize the IDT
 void idt_init(void) {
-    // External interrupt handler functions from assembly
     extern void isr0(void);  extern void isr1(void);  extern void isr2(void);  extern void isr3(void);
     extern void isr4(void);  extern void isr5(void);  extern void isr6(void);  extern void isr7(void);
     extern void isr8(void);  extern void isr9(void);  extern void isr10(void); extern void isr11(void);
@@ -109,7 +93,6 @@ void idt_init(void) {
     extern void irq8(void);  extern void irq9(void);  extern void irq10(void); extern void irq11(void);
     extern void irq12(void); extern void irq13(void); extern void irq14(void); extern void irq15(void);
 
-    // Set up exception handlers (0-31)
     idt_set_gate(0,  (uint32_t)isr0,  0x08, IDT_INTERRUPT_GATE);
     idt_set_gate(1,  (uint32_t)isr1,  0x08, IDT_INTERRUPT_GATE);
     idt_set_gate(2,  (uint32_t)isr2,  0x08, IDT_INTERRUPT_GATE);
@@ -159,9 +142,7 @@ void idt_init(void) {
     idt_set_gate(46, (uint32_t)irq14, 0x08, IDT_INTERRUPT_GATE);
     idt_set_gate(47, (uint32_t)irq15, 0x08, IDT_INTERRUPT_GATE);
     
-    // Load the IDT
     idt_load();
-    
     vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK, 
                       "IDT initialized with exception handlers\n");
 }
