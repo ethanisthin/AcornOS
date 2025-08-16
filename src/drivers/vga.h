@@ -24,16 +24,42 @@ typedef enum{
     VGA_COLOR_WHITE = 15,
 } vga_colours;
 
+typedef struct {
+    vga_colours fg;
+    vga_colours bg;
+} vga_colour_pair;
+
 void vga_init(void);
 void vga_clear(void);
-void vga_set_clr(vga_colours fg, vga_colours bg);
+void vga_set_color(vga_colours fg, vga_colours bg);  
 void vga_putchar(char c);
 void vga_puts(const char* str);
 void vga_putchar_at(char c, int x, int y);
-void vga_set_cur(int x, int y);
-void vga_get_cur(int x, int y);
-void vga_move_cur(int dx, int dy);
-void vga_enable_cur(void);
-void vga_disable_cur(void);
+void vga_set_cursor(int x, int y);  
+void vga_get_cursor(int* x, int* y);  
+void vga_move_cursor(int dx, int dy); 
+void vga_enable_cursor(void);  
+void vga_disable_cursor(void); 
+void vga_scroll(void);
+
+vga_colour_pair vga_get_color(void);
+void vga_save_color(vga_colour_pair* saved); 
+void vga_restore_color(const vga_colour_pair* saved); 
+void vga_puts_colored(const char* str, vga_colours fg, vga_colours bg);
+void vga_putchar_colored(char c, vga_colours fg, vga_colours bg);
+
+void vga_print_line(char c, int length);
+void vga_print_centered(const char* str);
+void vga_print_at(const char* str, int x, int y);
+void vga_clear_line(int y);
+void vga_fill_rect(int x, int y, int width, int height, char c, vga_colours fg, vga_colours bg);
+
+void vga_print_int(int value);
+void vga_print_uint(unsigned int value);
+void vga_print_hex(unsigned int value);
+void vga_print_hex_padded(unsigned int value, int width);
+void vga_printf(const char* format, ...);
+void vga_printf_colored(vga_colours fg, vga_colours bg, const char* format, ...);
+void vga_printf_at(int x, int y, const char* format, ...);
 
 #endif
