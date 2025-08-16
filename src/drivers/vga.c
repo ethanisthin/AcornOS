@@ -160,6 +160,14 @@ void vga_putchar(char c) {
         cursor_x = 0;
     } else if (c == '\t') {
         cursor_x = (cursor_x + 8) & ~7; 
+    } else if (c == '\b') {  
+        if (cursor_x > 0) {
+            cursor_x--;
+        } else if (cursor_y > 0) {
+            cursor_y--;
+            cursor_x = WIDTH - 1;
+        }
+        vga_putchar_at(' ', cursor_x, cursor_y);
     } else if (c >= 32) { 
         vga_putchar_at(c, cursor_x, cursor_y);
         cursor_x++;
