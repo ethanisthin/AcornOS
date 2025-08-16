@@ -46,7 +46,7 @@ load_kernel:
     xor bx, bx
     
     mov ah, 0x02
-    mov al, 16
+    mov al, 24
     mov ch, 0
     mov cl, 6
     mov dh, 0
@@ -76,7 +76,7 @@ enable_a20:
 dap:
     db 0x10
     db 0
-    dw 16
+    dw 24
     dw 0x0000
     dw 0x1000
     dq 5
@@ -104,7 +104,7 @@ protected_mode:
     cld
     mov esi, 0x10000
     mov edi, 0x100000
-    mov ecx, 4096
+    mov ecx, 5120
     rep movsd
     
     call 0x100000
