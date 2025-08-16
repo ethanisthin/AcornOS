@@ -30,5 +30,10 @@ void vga_set_clr(vga_colours fg, vga_colours bg);
 void vga_putchar(char c);
 void vga_puts(const char* str);
 void vga_putchar_at(char c, int x, int y);
+void vga_set_cur(int x, int y);
+void vga_get_cur(int x, int y);
+void vga_move_cur(int dx, int dy);
+void vga_enable_cur(void);
+void vga_disable_cur(void);
 
 #endif
