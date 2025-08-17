@@ -11,6 +11,8 @@ STRING_SRC = $(SRC)/lib/string/string.c
 INTERRUPT_ASM = $(SRC)/arch/interrupts_handlers.asm
 KEYBOARD_SRC = $(SRC)/drivers/keyboard.c
 SHELL_SRC = $(SRC)/shell/shell.c
+FS_SRC = $(SRC)/filesystem/fat16.c
+ATA_SRC = $(SRC)/drivers/ata.c
 
 # Object files
 KERNEL_OBJ = $(BUILD)/kernel.o $(BUILD)/interrupts.o $(BUILD)/pic.o $(BUILD)/timer.o 
@@ -19,11 +21,13 @@ STRING_OBJ = $(BUILD)/string.o
 INTERRUPT_OBJ = $(BUILD)/interrupts_handlers.o
 KEYBOARD_OBJ = $(BUILD)/keyboard.o
 SHELL_OBJ = $(BUILD)/shell.o
+FS_OBJ = $(BUILD)/fat16.o
+ATA_OBJ = $(BUILD)/ata.o
 
 KERNEL_BIN = $(BUILD)/kernel.bin
 
-CFLAGS = -ffreestanding -nostdlib -Wall -Wextra -m32 -fno-pic -fno-pie \
-         -I$(SRC)/drivers -I$(SRC)/lib/string -I$(SRC)/include -I$(SRC)/kernel -I$(SRC)/arch -I$(SRC)/shell
+CFLAGS = -ffreestanding -nostdlib -Wall -Wextra -m32 -fno-pic -fno-pie -fno-stack-protector\
+         -I$(SRC)/drivers -I$(SRC)/lib/string -I$(SRC)/include -I$(SRC)/kernel -I$(SRC)/arch -I$(SRC)/shell -I$(SRC)/filesystem
 
 .PHONY: all run clean
 
@@ -61,6 +65,14 @@ $(BUILD)/shell.o: $(SHELL_SRC)
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(BUILD)/fat16.o: $(FS_SRC)
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/ata.o: $(ATA_SRC)
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 $(BUILD)/vga.o: $(VGA_SRC)
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -73,14 +85,14 @@ $(BUILD)/interrupts_handlers.o: $(INTERRUPT_ASM)
 	@mkdir -p $(BUILD)
 	$(ASM) $< -f elf32 -o $@
 
-$(BUILD)/kernel.bin: $(KERNEL_OBJ) $(VGA_OBJ) $(STRING_OBJ) $(INTERRUPT_OBJ) $(KEYBOARD_OBJ) $(SHELL_OBJ)
+$(BUILD)/kernel.bin: $(KERNEL_OBJ) $(VGA_OBJ) $(STRING_OBJ) $(INTERRUPT_OBJ) $(KEYBOARD_OBJ) $(SHELL_OBJ) $(FS_OBJ) $(ATA_OBJ)
 	$(LD) -m elf_i386 -T $(SRC)/kernel/linker.ld -nostdlib -o $@ $^ --oformat binary
 
 $(BUILD)/main_disk.img: $(BUILD)/stage1.bin $(BUILD)/stage2.bin $(BUILD)/kernel.bin
 	@dd if=/dev/zero of=build/main_disk.img bs=512 count=8192
 	@dd if=$(BUILD)/stage1.bin of=build/main_disk.img conv=notrunc
 	@dd if=$(BUILD)/stage2.bin of=build/main_disk.img conv=notrunc bs=512 seek=1 
-	@dd if=$(BUILD)/kernel.bin of=build/main_disk.img conv=notrunc bs=512 seek=5
+	@dd if=$(BUILD)/kernel.bin of=build/main_disk.img conv=notrunc bs=512 seek=20
 	@echo "Disk image created successfully"
 
 run: $(BUILD)/main_disk.img
