@@ -35,5 +35,17 @@ void cmd_clear(int argc, char* argv[]);
 void cmd_echo(int argc, char* argv[]);
 void cmd_history(int argc, char* argv[]);
 void cmd_about(int argc, char* argv[]);
+void cmd_pwd(int argc, char* argv[]);
+void cmd_cd(int argc, char* argv[]);
+void cmd_ls(int argc, char* argv[]);
+void cmd_touch(int argc, char* argv[]);
+void cmd_rm(int argc, char* argv[]);
+void cmd_mkdir(int argc, char* argv[]);
+void cmd_rmdir(int argc, char* argv[]);
+void cmd_cp(int argc, char* argv[]);
+void cmd_mv(int argc, char* argv[]);
+void cmd_cat(int argc, char* argv[]);
+void cmd_stat(int argc, char* argv[]);
+void cmd_fstest(int argc, char* argv[]);
 
 #endif
