@@ -194,7 +194,7 @@ char keyboard_get_ascii_char(uint8_t scancode, bool shift_pressed) {
 }
 
 key_result_t keyboard_scancode_to_ascii(uint8_t scancode) {
-    key_result_t result = {0, false, false};
+    key_result_t result = {0, false, false, 0};
     
     switch (scancode) {
         case KEY_ESCAPE:
