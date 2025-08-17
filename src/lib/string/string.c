@@ -43,6 +43,51 @@ char* strcat(char* dest, const char* src) {
     return original_dest;
 }
 
+char* strstr(const char* haystack, const char* needle) {
+    if (!haystack || !needle) {
+        return NULL;
+    }
+    
+    if (*needle == '\0') {
+        return (char*)haystack;
+    }
+    
+    while (*haystack) {
+        const char* h = haystack;
+        const char* n = needle;
+        
+        while (*h && *n && (*h == *n)) {
+            h++;
+            n++;
+        }
+        
+        if (*n == '\0') {
+            return (char*)haystack;
+        }
+        
+        haystack++;
+    }
+    
+    return NULL;
+}
+
+char* strrchr(const char* str, int c) {
+    if (!str) {
+        return NULL;
+    }
+    
+    const char* last = NULL;
+    
+    while (*str) {
+        if (*str == c) {
+            last = str;
+        }
+        str++;
+    }
+    
+    return (char*)last;
+}
+
 void* memset(void* ptr, int value, int num) {
     unsigned char* p = (unsigned char*)ptr;
     while (num--) {
