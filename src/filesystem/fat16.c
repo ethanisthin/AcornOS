@@ -4,9 +4,215 @@
 #include "../drivers/ata.h"
 #include <stdbool.h>
 
-
-static fat16_context_t fs_ctx;
+/* Global Variables */
+fat16_context_t fs_ctx;
 static fat16_dir_context_t dir_ctx;
+
+
+static bool fat16_free_cluster(uint16_t cluster) {
+    if (!fs_ctx.mounted || !fs_ctx.fat_table || cluster < 2) {
+        return false;
+    }
+    
+    if (cluster >= fs_ctx.total_clusters + 2) {
+        return false;
+    }
+    
+    fs_ctx.fat_table[cluster] = FAT16_FREE_CLUSTER;
+    return true;
+}
+
+static uint32_t fat16_cluster_to_sector(uint16_t cluster) {
+    if (cluster < 2) {
+        return 0; 
+    }
+
+    return fs_ctx.data_start_sector + ((cluster - 2) * fs_ctx.boot_sector.sectors_per_cluster);
+}
+
+static uint32_t fat16_get_cluster_size_sectors(void) {
+    return fs_ctx.boot_sector.sectors_per_cluster;
+}
+
+static uint32_t fat16_get_cluster_size_bytes(void) {
+    return fs_ctx.boot_sector.sectors_per_cluster * fs_ctx.boot_sector.bytes_per_sector;
+}
+
+
+
+static bool fat16_load_fat_table(void) {
+    if (!fs_ctx.mounted) {
+        return false;
+    }
+    
+    
+    uint32_t fat_size_bytes = fs_ctx.boot_sector.sectors_per_fat * fs_ctx.boot_sector.bytes_per_sector;
+    uint32_t fat_entries = fat_size_bytes / 2; 
+    
+    vga_printf("FAT table info: %d sectors, %d bytes, %d entries\n", 
+               fs_ctx.boot_sector.sectors_per_fat, fat_size_bytes, fat_entries);
+    
+    
+    static uint16_t fat_buffer[8192]; 
+    
+    if (fat_entries > 8192) {
+        vga_printf("FAT table too large for buffer (need %d, have 8192)\n", fat_entries);
+        return false;
+    }
+    
+    
+    uint8_t sector_buffer[512];
+    uint16_t* fat_ptr = fat_buffer;
+    
+    vga_printf("Loading FAT table from sector %d...\n", fs_ctx.fat_start_sector);
+    
+    for (uint32_t sector = 0; sector < fs_ctx.boot_sector.sectors_per_fat; sector++) {
+        if (!fat16_read_sector(fs_ctx.fat_start_sector + sector, sector_buffer)) {
+            vga_printf("Failed to read FAT sector %d\n", sector);
+            return false;
+        }
+        
+        
+        memcpy(fat_ptr, sector_buffer, 512);
+        fat_ptr += 256; 
+    }
+    
+    
+    fs_ctx.fat_table = fat_buffer;
+    
+    vga_printf("FAT table loaded successfully (%d entries)\n", fat_entries);
+    return true;
+}
+
+static bool fat16_save_fat_table(void) {
+    if (!fs_ctx.mounted || !fs_ctx.fat_table) {
+        return false;
+    }
+    
+    
+    uint8_t sector_buffer[512];
+    uint16_t* fat_ptr = fs_ctx.fat_table;
+    
+    
+    for (uint8_t fat_copy = 0; fat_copy < fs_ctx.boot_sector.fat_count; fat_copy++) {
+        uint32_t fat_start = fs_ctx.fat_start_sector + (fat_copy * fs_ctx.boot_sector.sectors_per_fat);
+        fat_ptr = fs_ctx.fat_table; 
+        
+        for (uint32_t sector = 0; sector < fs_ctx.boot_sector.sectors_per_fat; sector++) {
+            
+            memcpy(sector_buffer, fat_ptr, 512);
+            
+            
+            if (!fat16_write_sector(fat_start + sector, sector_buffer)) {
+                vga_printf("Failed to write FAT sector %d (copy %d)\n", sector, fat_copy);
+                return false;
+            }
+            
+            fat_ptr += 256; 
+        }
+    }
+    
+    vga_printf("FAT table saved successfully\n");
+    return true;
+}
+
+
+static bool fat16_read_cluster_chain(uint16_t first_cluster, void* buffer, uint32_t buffer_size, uint32_t* bytes_read) {
+    if (!fs_ctx.mounted || !fs_ctx.fat_table || !buffer || !bytes_read) {
+        return false;
+    }
+    
+    *bytes_read = 0;
+    uint8_t* buf_ptr = (uint8_t*)buffer;
+    uint16_t current_cluster = first_cluster;
+    uint32_t cluster_size = fat16_get_cluster_size_bytes();
+    uint8_t cluster_buffer[512]; 
+    
+    
+    while (current_cluster >= 2 && current_cluster < 0xFFF8 && *bytes_read < buffer_size) {
+        
+        uint32_t cluster_sector = fat16_cluster_to_sector(current_cluster);
+        
+        if (!fat16_read_sector(cluster_sector, cluster_buffer)) {
+            vga_printf("Failed to read cluster %d\n", current_cluster);
+            return false;
+        }
+        
+        
+        uint32_t bytes_to_copy = cluster_size;
+        if (*bytes_read + bytes_to_copy > buffer_size) {
+            bytes_to_copy = buffer_size - *bytes_read;
+        }
+        
+        memcpy(buf_ptr + *bytes_read, cluster_buffer, bytes_to_copy);
+        *bytes_read += bytes_to_copy;
+        
+        
+        if (current_cluster >= fs_ctx.total_clusters + 2) {
+            vga_printf("Invalid cluster number: %d\n", current_cluster);
+            break;
+        }
+        
+        current_cluster = fs_ctx.fat_table[current_cluster];
+        
+        
+        if (current_cluster >= 0xFFF8) {
+            break; 
+        }
+    }
+    
+    return true;
+}
+
+
+static bool fat16_update_directory_entry(const char* filename, uint32_t new_size, uint16_t new_first_cluster) {
+    if (!fs_ctx.mounted || !filename) {
+        return false;
+    }
+    
+    
+    uint32_t root_dir_sectors = (fs_ctx.boot_sector.root_entries * 32) / fs_ctx.boot_sector.bytes_per_sector;
+    uint32_t entries_per_sector = fs_ctx.boot_sector.bytes_per_sector / 32;
+    
+    uint8_t sector_buffer[512];
+    
+    
+    for (uint32_t sector = 0; sector < root_dir_sectors; sector++) {
+        if (!fat16_read_sector(fs_ctx.root_dir_start_sector + sector, sector_buffer)) {
+            return false;
+        }
+        
+        fat16_dir_entry_t* sector_entries = (fat16_dir_entry_t*)sector_buffer;
+        
+        
+        for (uint32_t i = 0; i < entries_per_sector; i++) {
+            fat16_dir_entry_t* entry = &sector_entries[i];
+            
+            
+            if (entry->filename[0] == 0x00 || (unsigned char)entry->filename[0] == 0xE5) {
+                continue;
+            }
+            
+            
+            char entry_filename[13];
+            fat16_83_to_filename(entry->filename, entry_filename);
+            
+            if (strcmp(entry_filename, filename) == 0) {
+                
+                entry->file_size = new_size;
+                entry->first_cluster_low = new_first_cluster;
+                
+                
+                if (!fat16_write_sector(fs_ctx.root_dir_start_sector + sector, sector_buffer)) {
+                    return false;
+                }
+                return true;
+            }
+        }
+    }
+    
+    return false; 
+}
 
 static void fat16_init_directory_context(void) {
     strcpy(dir_ctx.current_path, "/");
@@ -29,13 +235,55 @@ bool fat16_mount(void) {
     vga_printf("Mounting FAT-16 filesystem...\n");
     
     
+    fat16_boot_sector_t boot_sector;
+    if (!fat16_read_sector(100, &boot_sector)) {
+        vga_printf("Failed to read boot sector\n");
+        return false;
+    }
     
     
+    if (boot_sector.bytes_per_sector != 512) {
+        vga_printf("Invalid bytes per sector: %d\n", boot_sector.bytes_per_sector);
+        return false;
+    }
+    
+    if (boot_sector.fat_count != 2) {
+        vga_printf("Invalid FAT count: %d\n", boot_sector.fat_count);
+        return false;
+    }
     
     
-    vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                      "Mount not implemented yet\n");
-    return false;
+    if (memcmp(boot_sector.oem_name, "ACORNOS ", 8) != 0) {
+        vga_printf("Invalid OEM name (not AcornOS filesystem)\n");
+        return false;
+    }
+    
+    
+    memcpy(&fs_ctx.boot_sector, &boot_sector, sizeof(fat16_boot_sector_t));
+    
+    
+    fs_ctx.fat_start_sector = 100 + boot_sector.reserved_sectors;
+    fs_ctx.root_dir_start_sector = fs_ctx.fat_start_sector + (boot_sector.fat_count * boot_sector.sectors_per_fat);
+    fs_ctx.data_start_sector = fs_ctx.root_dir_start_sector + ((boot_sector.root_entries * 32) / boot_sector.bytes_per_sector);
+    fs_ctx.total_clusters = (boot_sector.total_sectors_16 - fs_ctx.data_start_sector) / boot_sector.sectors_per_cluster;
+    
+    
+    fs_ctx.mounted = true;
+    
+    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
+                      "FAT-16 filesystem mounted successfully!\n");
+    vga_printf("FAT starts at sector: %d\n", fs_ctx.fat_start_sector);
+    vga_printf("Root directory at sector: %d\n", fs_ctx.root_dir_start_sector);
+    vga_printf("Data area at sector: %d\n", fs_ctx.data_start_sector);
+    vga_printf("Total clusters: %d\n", fs_ctx.total_clusters);
+
+    if (!fat16_load_fat_table()) {
+        vga_printf("Failed to load FAT table\n");
+        fs_ctx.mounted = false;
+        return false;
+    }
+    
+    return true;
 }
 
 void fat16_unmount(void) {
@@ -102,34 +350,6 @@ static bool fat16_link_clusters(uint16_t cluster, uint16_t next_cluster) {
     return true;
 }
 
-static bool fat16_free_cluster(uint16_t cluster) {
-    if (!fs_ctx.mounted || !fs_ctx.fat_table || cluster < 2) {
-        return false;
-    }
-    
-    if (cluster >= fs_ctx.total_clusters + 2) {
-        return false;
-    }
-    
-    fs_ctx.fat_table[cluster] = FAT16_FREE_CLUSTER;
-    return true;
-}
-
-static uint32_t fat16_cluster_to_sector(uint16_t cluster) {
-    if (cluster < 2) {
-        return 0; 
-    }
-
-    return fs_ctx.data_start_sector + ((cluster - 2) * fs_ctx.boot_sector.sectors_per_cluster);
-}
-
-static uint32_t fat16_get_cluster_size_sectors(void) {
-    return fs_ctx.boot_sector.sectors_per_cluster;
-}
-
-static uint32_t fat16_get_cluster_size_bytes(void) {
-    return fs_ctx.boot_sector.sectors_per_cluster * fs_ctx.boot_sector.bytes_per_sector;
-}
 
 static bool fat16_is_valid_cluster(uint16_t cluster) {
     return (cluster >= 2 && cluster < fs_ctx.total_clusters + 2);
@@ -168,7 +388,7 @@ static uint16_t fat16_allocate_file_clusters(uint32_t file_size) {
     return first_cluster;
 }
 
-static void fat16_filename_to_83(const char* filename, char* fat_name) {
+void fat16_filename_to_83(const char* filename, char* fat_name) {
     memset(fat_name, ' ', 11);    
     const char* dot = NULL;
     int name_len = 0;
@@ -195,7 +415,7 @@ static void fat16_filename_to_83(const char* filename, char* fat_name) {
     }
 }
 
-static void fat16_83_to_filename(const char* fat_name, char* filename) {
+void fat16_83_to_filename(const char* fat_name, char* filename) {
     int pos = 0;
 
     for (int i = 0; i < 8; i++) {
@@ -244,7 +464,7 @@ static void fat16_create_dir_entry(fat16_dir_entry_t* entry, const char* filenam
 }
 
 static bool fat16_is_entry_empty(const fat16_dir_entry_t* entry) {
-    return (entry->filename[0] == 0x00 || entry->filename[0] == 0xE5);
+    return (entry->filename[0] == 0x00 || (unsigned char)entry->filename[0] == 0xE5);
 }
 
 static bool fat16_is_directory(const fat16_dir_entry_t* entry) {
@@ -515,23 +735,25 @@ bool fat16_create_file(const char* filename, uint8_t attributes) {
         return false;
     }
     
+    if (!fs_ctx.mounted) {
+        vga_printf("Filesystem not mounted\n");
+        return false;
+    }
     
     if (!fat16_is_valid_attributes(attributes)) {
         vga_printf("Invalid file attributes\n");
         return false;
     }
     
-    
-    vga_printf("Creating file: %s (simulated)\n", filename);
-    
-    
     fat16_dir_entry_t new_entry;
     fat16_create_dir_entry(&new_entry, filename, attributes, 0, 0);
+    if (!fat16_write_directory_entry(&new_entry)) {
+        vga_printf("Failed to write directory entry\n");
+        return false;
+    }
     
-    
-    
-    
-    return true; 
+    vga_printf("File created successfully: %s\n", filename);
+    return true;
 }
 
 
@@ -541,12 +763,73 @@ bool fat16_delete_file(const char* filename) {
     }
     
     
-    vga_printf("Deleting file: %s (simulated)\n", filename);
+    if (!fs_ctx.mounted) {
+        vga_printf("Filesystem not mounted\n");
+        return false;
+    }
     
     
+    static fat16_dir_entry_t entries[64];
+    int entry_count = fat16_read_root_directory(entries, 64);
+    
+    uint16_t first_cluster = 0;
+    bool file_found = false;
     
     
-    return true; 
+    for (int i = 0; i < entry_count; i++) {
+        char entry_filename[13];
+        fat16_83_to_filename(entries[i].filename, entry_filename);
+        
+        if (strcmp(entry_filename, filename) == 0) {
+            if (entries[i].attributes & FAT_ATTR_DIRECTORY) {
+                vga_printf("Cannot delete directory as file: %s\n", filename);
+                return false;
+            }
+            
+            first_cluster = entries[i].first_cluster_low;
+            file_found = true;
+            break;
+        }
+    }
+    
+    if (!file_found) {
+        vga_printf("File not found: %s\n", filename);
+        return false;
+    }
+    
+    
+    if (first_cluster >= 2 && fs_ctx.fat_table) {
+        uint16_t current_cluster = first_cluster;
+        int clusters_freed = 0;
+        
+        while (current_cluster >= 2 && current_cluster < 0xFFF8) {
+            uint16_t next_cluster = fs_ctx.fat_table[current_cluster];
+            
+            
+            fs_ctx.fat_table[current_cluster] = FAT16_FREE_CLUSTER;
+            clusters_freed++;
+            
+            
+            if (next_cluster >= 0xFFF8) {
+                break; 
+            }
+            current_cluster = next_cluster;
+        }
+        
+        
+        if (!fat16_save_fat_table()) {
+            vga_printf("Warning: Failed to save FAT table after freeing clusters\n");
+        }
+    }
+    
+    
+    if (!fat16_delete_directory_entry(filename)) {
+        vga_printf("Failed to delete directory entry: %s\n", filename);
+        return false;
+    }
+    
+    vga_printf("File deleted successfully: %s\n", filename);
+    return true;
 }
 
 
@@ -755,3 +1038,331 @@ void fat16_test_file_operations(void) {
     
     vga_printf("\n");
 }
+
+
+void fat16_create_boot_sector(fat16_boot_sector_t* boot_sector) {
+    memset(boot_sector, 0, sizeof(fat16_boot_sector_t));
+    boot_sector->jmp_instr[0] = 0xEB;
+    boot_sector->jmp_instr[1] = 0x3C;
+    boot_sector->jmp_instr[2] = 0x90;
+    memcpy(boot_sector->oem_name, "ACORNOS ", 8);
+
+    boot_sector->bytes_per_sector = 512;
+    boot_sector->sectors_per_cluster = 1;
+    boot_sector->reserved_sectors = 1;
+    boot_sector->fat_count = 2;
+    boot_sector->root_entries = 512;
+    boot_sector->total_sectors_16 = 8192;
+    boot_sector->media_descriptor = 0xF8;
+    boot_sector->sectors_per_fat = 32;
+    boot_sector->sectors_per_track = 63;
+    boot_sector->heads = 16;
+    boot_sector->hidden_sectors = 0;
+    boot_sector->total_sectors_32 = 0;
+}
+
+bool fat16_format_disk(void) {
+    vga_printf("Formatting disk with FAT-16...\n");
+    
+    
+    vga_printf("Creating boot sector...\n");
+    fat16_boot_sector_t boot_sector;
+    fat16_create_boot_sector(&boot_sector);
+    
+    vga_printf("Writing boot sector to sector 100...\n");
+    
+    if (!fat16_write_sector(100, &boot_sector)) {
+        vga_printf("Failed to write boot sector\n");
+        return false;
+    }
+    
+    vga_printf("Boot sector written successfully\n");
+    vga_printf("FAT-16 boot sector written to sector 100\n");
+    vga_printf("Format operation completed\n");
+    return true;
+}
+
+
+int fat16_read_root_directory(fat16_dir_entry_t* entries, int max_entries) {
+    if (!fs_ctx.mounted || !entries) {
+        return 0;
+    }
+
+    uint32_t root_dir_sectors = (fs_ctx.boot_sector.root_entries * 32) / fs_ctx.boot_sector.bytes_per_sector;
+    uint32_t entries_per_sector = fs_ctx.boot_sector.bytes_per_sector / 32; 
+    int total_entries = 0;
+    uint8_t sector_buffer[512];
+    
+    for (uint32_t sector = 0; sector < root_dir_sectors && total_entries < max_entries; sector++) {
+        if (!fat16_read_sector(fs_ctx.root_dir_start_sector + sector, sector_buffer)) {
+            vga_printf("Failed to read root directory sector %d\n", sector);
+            return total_entries;
+        }
+        fat16_dir_entry_t* sector_entries = (fat16_dir_entry_t*)sector_buffer;
+
+        for (uint32_t i = 0; i < entries_per_sector && total_entries < max_entries; i++) {
+            fat16_dir_entry_t* entry = &sector_entries[i];
+            if (entry->filename[0] == 0x00) {
+                return total_entries;
+            }
+            
+            if ((unsigned char)entry->filename[0] == 0xE5) {
+                continue;
+            }
+            
+            if (entry->attributes & FAT_ATTR_VOLUME_ID) {
+                continue;
+            }
+            
+            memcpy(&entries[total_entries], entry, sizeof(fat16_dir_entry_t));
+            total_entries++;
+        }
+    }
+    
+    return total_entries;
+}
+
+
+bool fat16_write_directory_entry(const fat16_dir_entry_t* entry) {
+    if (!fs_ctx.mounted || !entry) {
+        return false;
+    }
+    
+    
+    uint32_t root_dir_sectors = (fs_ctx.boot_sector.root_entries * 32) / fs_ctx.boot_sector.bytes_per_sector;
+    uint32_t entries_per_sector = fs_ctx.boot_sector.bytes_per_sector / 32;
+    
+    uint8_t sector_buffer[512];
+    
+    
+    for (uint32_t sector = 0; sector < root_dir_sectors; sector++) {
+        if (!fat16_read_sector(fs_ctx.root_dir_start_sector + sector, sector_buffer)) {
+            vga_printf("Failed to read root directory sector %d\n", sector);
+            return false;
+        }
+        
+        fat16_dir_entry_t* sector_entries = (fat16_dir_entry_t*)sector_buffer;
+        
+        
+        for (uint32_t i = 0; i < entries_per_sector; i++) {
+            if (sector_entries[i].filename[0] == 0x00 || (unsigned char)sector_entries[i].filename[0] == 0xE5) {
+                
+                memcpy(&sector_entries[i], entry, sizeof(fat16_dir_entry_t));
+                
+                
+                if (!fat16_write_sector(fs_ctx.root_dir_start_sector + sector, sector_buffer)) {
+                    vga_printf("Failed to write directory entry\n");
+                    return false;
+                }
+                
+                vga_printf("Directory entry written successfully\n");
+                return true;
+            }
+        }
+    }
+    
+    vga_printf("Root directory is full\n");
+    return false;
+}
+
+
+bool fat16_delete_directory_entry(const char* filename) {
+    if (!fs_ctx.mounted || !filename) {
+        return false;
+    }
+    
+    
+    uint32_t root_dir_sectors = (fs_ctx.boot_sector.root_entries * 32) / fs_ctx.boot_sector.bytes_per_sector;
+    uint32_t entries_per_sector = fs_ctx.boot_sector.bytes_per_sector / 32;
+    
+    uint8_t sector_buffer[512];
+    
+    
+    for (uint32_t sector = 0; sector < root_dir_sectors; sector++) {
+        if (!fat16_read_sector(fs_ctx.root_dir_start_sector + sector, sector_buffer)) {
+            return false;
+        }
+        
+        fat16_dir_entry_t* sector_entries = (fat16_dir_entry_t*)sector_buffer;
+        
+        
+        for (uint32_t i = 0; i < entries_per_sector; i++) {
+            fat16_dir_entry_t* entry = &sector_entries[i];
+            
+            
+            if (entry->filename[0] == 0x00 || (unsigned char)entry->filename[0] == 0xE5) {
+                continue;
+            }
+            
+            
+            char entry_filename[13];
+            fat16_83_to_filename(entry->filename, entry_filename);
+            
+            if (strcmp(entry_filename, filename) == 0) {
+                
+                entry->filename[0] = (char)0xE5;
+                
+                
+                if (!fat16_write_sector(fs_ctx.root_dir_start_sector + sector, sector_buffer)) {
+                    return false;
+                }
+                
+                vga_printf("Directory entry deleted: %s\n", filename);
+                return true;
+            }
+        }
+    }
+    
+    return false; 
+}
+
+
+bool fat16_read_file_content(const char* filename, void* buffer, uint32_t buffer_size, uint32_t* bytes_read) {
+    if (!fs_ctx.mounted || !filename || !buffer || !bytes_read) {
+        return false;
+    }
+    *bytes_read = 0;
+    
+    
+    static fat16_dir_entry_t entries[64];
+    int entry_count = fat16_read_root_directory(entries, 64);
+    
+    for (int i = 0; i < entry_count; i++) {
+        char entry_filename[13];
+        fat16_83_to_filename(entries[i].filename, entry_filename);
+        
+        if (strcmp(entry_filename, filename) == 0) {
+            
+            if (entries[i].attributes & FAT_ATTR_DIRECTORY) {
+                vga_printf("Cannot read directory as file\n");
+                return false;
+            }
+            
+            uint32_t file_size = entries[i].file_size;
+            uint16_t first_cluster = entries[i].first_cluster_low;
+            
+            if (file_size == 0 || first_cluster == 0) {
+                *bytes_read = 0;
+                return true;
+            }
+            
+            
+            uint32_t max_read = (file_size < buffer_size) ? file_size : buffer_size;
+            
+            if (fat16_read_cluster_chain(first_cluster, buffer, max_read, bytes_read)) {
+                
+                if (*bytes_read > file_size) {
+                    *bytes_read = file_size;
+                }
+                return true;
+            } else {
+                vga_printf("Failed to read file content from clusters\n");
+                return false;
+            }
+        }
+    }
+    
+    vga_printf("File not found: %s\n", filename);
+    return false; 
+}
+
+
+
+
+
+
+static bool fat16_write_cluster_chain(uint16_t* first_cluster, const void* buffer, uint32_t data_size) {
+    if (!fs_ctx.mounted || !fs_ctx.fat_table || !buffer || !first_cluster) {
+        return false;
+    }
+    
+    const uint8_t* buf_ptr = (const uint8_t*)buffer;
+    uint32_t cluster_size = fat16_get_cluster_size_bytes();
+    uint32_t clusters_needed = (data_size + cluster_size - 1) / cluster_size;
+    uint32_t bytes_written = 0;
+    
+    
+    if (*first_cluster == 0) {
+        *first_cluster = fat16_find_free_cluster();
+        if (*first_cluster == 0) {
+            vga_printf("No free clusters available\n");
+            return false;
+        }
+    }
+    
+    uint16_t current_cluster = *first_cluster;
+    uint8_t cluster_buffer[512];
+    
+    
+    for (uint32_t cluster_num = 0; cluster_num < clusters_needed; cluster_num++) {
+        
+        memset(cluster_buffer, 0, sizeof(cluster_buffer));
+        uint32_t bytes_to_write = cluster_size;
+        if (bytes_written + bytes_to_write > data_size) {
+            bytes_to_write = data_size - bytes_written;
+        }
+        
+        memcpy(cluster_buffer, buf_ptr + bytes_written, bytes_to_write);
+        
+        
+        uint32_t cluster_sector = fat16_cluster_to_sector(current_cluster);
+        if (!fat16_write_sector(cluster_sector, cluster_buffer)) {
+            vga_printf("Failed to write cluster %d\n", current_cluster);
+            return false;
+        }
+        
+        bytes_written += bytes_to_write;
+        
+        
+        if (cluster_num < clusters_needed - 1) {
+            
+            uint16_t next_cluster = fat16_find_free_cluster();
+            if (next_cluster == 0) {
+                vga_printf("Out of disk space\n");
+                return false;
+            }
+            
+            fs_ctx.fat_table[current_cluster] = next_cluster;
+            current_cluster = next_cluster;
+        } else {
+            
+            fs_ctx.fat_table[current_cluster] = FAT16_END_OF_CHAIN;
+        }
+    }
+    
+    
+    return fat16_save_fat_table();
+}
+
+
+bool fat16_write_file_content(const char* filename, const void* buffer, uint32_t data_size) {
+    if (!fs_ctx.mounted || !filename || !buffer) {
+        return false;
+    }
+
+    static fat16_dir_entry_t entries[64];
+    int entry_count = fat16_read_root_directory(entries, 64);
+    for (int i = 0; i < entry_count; i++) {
+        char entry_filename[13];
+        fat16_83_to_filename(entries[i].filename, entry_filename);
+        
+        if (strcmp(entry_filename, filename) == 0) {
+            if (entries[i].attributes & FAT_ATTR_DIRECTORY) {
+                vga_printf("Cannot write to directory\n");
+                return false;
+            }
+    
+            uint16_t first_cluster = entries[i].first_cluster_low;
+            if (fat16_write_cluster_chain(&first_cluster, buffer, data_size)) {
+                vga_printf("File content written successfully\n");
+                return true;
+            } else {
+                vga_printf("Failed to write file content\n");
+                return false;
+            }
+        }
+    }
+    vga_printf("File not found: %s\n", filename);
+    return false;
+}
+
