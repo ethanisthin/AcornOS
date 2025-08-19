@@ -28,6 +28,7 @@ static const shell_command_t commands[] = {
     {"format", "Format disk with FAT-16", cmd_format},
     {"mount", "Check/mount filesystem", cmd_mount},
     {"write", "Write text to file (write \"text\" > filename)", cmd_echo_to_file},
+    {"edit", "Open text editor", cmd_edit},
     {NULL, NULL, NULL} 
 };
 
@@ -717,4 +718,13 @@ void cmd_echo_to_file(int argc, char* argv[]) {
         vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
                           "Failed to write to file: %s\n", filename);
     }
+}
+
+void cmd_edit(int argc, char* argv[]) {
+    if (argc < 2) {
+        vga_puts("Usage: edit <filename>\n");
+        return;
+    }
+    
+    editor_run(argv[1]);
 }

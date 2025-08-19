@@ -50,5 +50,6 @@ void cmd_fstest(int argc, char* argv[]);
 void cmd_format(int argc, char* argv[]);
 void cmd_mount(int argc, char* argv[]);
 void cmd_echo_to_file(int argc, char* argv[]);
+void cmd_edit(int argc, char* argv[]);
 
 #endif
