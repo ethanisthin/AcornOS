@@ -39,6 +39,10 @@
 #define KEY_F8        0x42
 #define KEY_F9        0x43
 #define KEY_F10       0x44
+#define KEY_UP_ARROW    0x48
+#define KEY_DOWN_ARROW  0x50  
+#define KEY_LEFT_ARROW  0x4B
+#define KEY_RIGHT_ARROW 0x4D
 
 #define KEYBOARD_BUFFER 256
 
