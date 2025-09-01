@@ -41,27 +41,26 @@ void editor_run(const char* filename) {
     }
     
     editor_refresh_screen();
-    
+
     while (!editor_state.should_exit) {
         editor_handle_input();
     }
-
+    keyboard_buffer_clear();
     editor_cleanup();
 }
 
 void editor_cleanup(void) {
-    vga_clear();
-    vga_set_color(VGA_COLOR_WHITE, VGA_COLOR_BLACK);
-    
+    keyboard_buffer_clear();
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
             vga_putchar_at(' ', x, y);
         }
     }
-
+    
+    vga_set_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
     vga_set_cursor(0, 0);
     vga_enable_cursor();
-    vga_puts("\n");
+    vga_clear();
 }
 
 
@@ -70,22 +69,50 @@ void editor_handle_input(void) {
     if (!keyboard_has_input()) {
         return;
     }
-    
+
     uint8_t scancode = keyboard_read_scancode();
+    if (!keyboard_is_key_pressed(scancode)){
+        return;
+    }
+
+    char ascii = 0;
     key_result_t key = keyboard_scancode_to_ascii(scancode);
+    ascii = key.ascii;
+
+    char debug_msg[50];
+    strcpy(debug_msg, "SC:");
+    char sc_str[10];
+    int_to_string(scancode, sc_str, 16);  // hex
+    strcat(debug_msg, sc_str);
+    strcat(debug_msg, " ASCII:");
+    int_to_string(ascii, sc_str, 16);  // hex
+    strcat(debug_msg, sc_str);
+    editor_set_status_message(debug_msg);
     
-    switch (editor_state.mode) {
-        case EDITOR_MODE_COMMAND:
-            editor_handle_command_mode(scancode, key.ascii);
+    switch (scancode) {
+        case KEY_BACKSPACE:
+            ascii = '\b';
             break;
-        case EDITOR_MODE_INSERT:
-            editor_handle_insert_mode(scancode, key.ascii);
+        case KEY_ENTER:
+            ascii = '\n';
             break;
-        case EDITOR_MODE_COMMAND_LINE:
-            editor_handle_command_line_mode(scancode, key.ascii);
+        case KEY_ESCAPE:
+            ascii = 0x1B;
             break;
     }
-    
+
+    switch (editor_state.mode) {
+        case EDITOR_MODE_COMMAND:
+            editor_handle_command_mode(scancode, ascii);
+            break;
+        case EDITOR_MODE_INSERT:
+            editor_handle_insert_mode(scancode, ascii);
+            break;
+        case EDITOR_MODE_COMMAND_LINE:
+            editor_handle_command_line_mode(scancode, ascii);
+            break;
+    }
+
     editor_refresh_screen();
 }
 
@@ -162,11 +189,12 @@ void editor_handle_command_mode(uint8_t scancode, char ascii) {
 
 
 void editor_handle_insert_mode(uint8_t scancode, char ascii) {
+    if (scancode == KEY_ESCAPE || ascii == 0x1B) {
+        editor_state.mode = EDITOR_MODE_COMMAND;
+        editor_set_status_message("");
+        return;
+    }
     switch (scancode) {
-        case KEY_ESCAPE:
-            editor_state.mode = EDITOR_MODE_COMMAND;
-            editor_set_status_message("");
-            break;
         case KEY_UP_ARROW:
             editor_move_cursor_up();
             break;
@@ -364,11 +392,25 @@ bool editor_save_file(void) {
         }
     }
 
-    buffer[pos] = '\0';
-    bool success = fat16_write_file_content(editor_state.filename, buffer, total_size);
+    // buffer[pos] = '\0';
+    
+    // Check if file exists, if not create it first
+    fat16_file_info_t file_info;
+    if (!fat16_get_file_info(editor_state.filename, &file_info)) {
+        // File doesn't exist, create it first
+        if (!fat16_create_file(editor_state.filename, FAT_ATTR_ARCHIVE)) {
+            editor_set_status_message("Error creating file");
+            return false;
+        }
+    }
+    
+    bool success = fat16_write_file_content(editor_state.filename, buffer, pos);
     
     if (success) {
         editor_state.modified = false;
+        editor_set_status_message("File saved");
+    } else {
+        editor_set_status_message("Error in saving file");
     }
     
     return success;
@@ -579,11 +621,7 @@ void editor_delete_line(void) {
 
 void editor_process_command(const char* command) {
     if (strcmp(command, "w") == 0) {
-        if (editor_save_file()) {
-            editor_set_status_message("File saved");
-        } else {
-            editor_set_status_message("Error saving file");
-        }
+        editor_save_file();
     } else if (strcmp(command, "q") == 0) {
         if (!editor_state.modified) {
             editor_state.should_exit = true;  
@@ -595,8 +633,6 @@ void editor_process_command(const char* command) {
     } else if (strcmp(command, "wq") == 0) {
         if (editor_save_file()) {
             editor_state.should_exit = true;  
-        } else {
-            editor_set_status_message("Error saving file");
         }
     } else {
         editor_set_status_message("Unknown command");
