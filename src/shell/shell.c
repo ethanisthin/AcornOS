@@ -243,15 +243,21 @@ void cmd_ls(int argc, char* argv[]) {
     if (!fs_ctx.mounted) {
         vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
                           "Filesystem not mounted - showing simulated content\n");
-        
-        vga_printf_colored(VGA_COLOR_LIGHT_BLUE, VGA_COLOR_BLACK, "bin");
-        vga_printf("          <DIR>\n");
-        vga_printf_colored(VGA_COLOR_WHITE, VGA_COLOR_BLACK, "readme.txt");
-        vga_printf("    1024 bytes\n");
         return;
     }
+    
     static fat16_dir_entry_t entries[64]; 
-    int entry_count = fat16_read_root_directory(entries, 64);
+    int entry_count;
+    
+    // Get current directory cluster from fat16 module
+    uint16_t current_cluster = fat16_get_current_dir_cluster();
+    
+    // Use the new function to read current directory
+    if (!fat16_read_directory_cluster(current_cluster, entries, 64, &entry_count)) {
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
+                          "Failed to read directory\n");
+        return;
+    }
     
     if (entry_count == 0) {
         vga_printf("Directory is empty\n");
@@ -264,11 +270,9 @@ void cmd_ls(int argc, char* argv[]) {
         fat16_83_to_filename(entry->filename, filename);
         
         if (entry->attributes & FAT_ATTR_DIRECTORY) {
-            
             vga_printf_colored(VGA_COLOR_LIGHT_BLUE, VGA_COLOR_BLACK, "%s", filename);
             vga_printf("          <DIR>\n");
         } else {
-            
             vga_printf_colored(VGA_COLOR_WHITE, VGA_COLOR_BLACK, "%s", filename);
             vga_printf("    %d bytes\n", entry->file_size);
         }
@@ -339,7 +343,7 @@ void cmd_mkdir(int argc, char* argv[]) {
         return;
     }
 
-    if (fat16_create_file(dirname, FAT_ATTR_DIRECTORY)) {
+    if (fat16_create_subdirectory(dirname)) {
         vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
                           "Directory created: %s\n", dirname);
     } else {
@@ -517,36 +521,24 @@ void cmd_cat(int argc, char* argv[]) {
     }
     
     const char* filename = argv[1];
-    if (strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Cannot display directory entries\n");
-        return;
-    }
+    static char file_buffer[4096];
+    uint32_t bytes_read;
     
-    if (!fs_ctx.mounted) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Filesystem not mounted\n");
-        return;
-    }
-
-    static char file_buffer[1024]; 
-    uint32_t bytes_read = 0;
     if (fat16_read_file_content(filename, file_buffer, sizeof(file_buffer) - 1, &bytes_read)) {
-        vga_printf_colored(VGA_COLOR_CYAN, VGA_COLOR_BLACK,
-                          "Contents of '%s' (%d bytes):\n", filename, bytes_read);
-        vga_printf("==================\n");
         file_buffer[bytes_read] = '\0';
-        vga_printf("%s\n", file_buffer);
         
-        if (bytes_read == 0) {
-            vga_printf("(file is empty)\n");
-        }
+        // Show current directory in the path
+        const char* current_dir = fat16_get_current_directory();
+        vga_printf_colored(VGA_COLOR_CYAN, VGA_COLOR_BLACK,
+                          "Contents of %s%s%s:\n", 
+                          current_dir,
+                          (strcmp(current_dir, "/") == 0) ? "" : "/",
+                          filename);
+        vga_printf("%s\n", file_buffer);
     } else {
         vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
                           "Failed to read file: %s\n", filename);
     }
-    
-    vga_printf("\n");
 }
 
 void cmd_stat(int argc, char* argv[]) {
@@ -592,7 +584,12 @@ void cmd_stat(int argc, char* argv[]) {
             vga_printf("\n");
             
             vga_printf("First Cluster: %d\n", entry->first_cluster_low);
-            vga_printf("Path:        %s/%s\n", fat16_get_current_directory(), filename);
+            const char* current_dir = fat16_get_current_directory();
+            if (strcmp(current_dir, "/") == 0) {
+                vga_printf("Path:        /%s\n", filename);
+            } else {
+                vga_printf("Path:        %s/%s\n", current_dir, filename);
+            }
             vga_printf("\n");
             return;
         }
