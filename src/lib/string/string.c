@@ -1,4 +1,5 @@
 #include "string.h"
+#include "stdarg.h"
 
 int strlen(const char* str) {
     int len = 0;
@@ -34,6 +35,62 @@ int strncmp(const char* str1, const char* str2, int n) {
     }
     if (n < 0) return 0;
     return *(unsigned char*)str1 - *(unsigned char*)str2;
+}
+
+int sprintf(char* dest, const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    
+    int written = 0;
+    const char* fmt = format;
+    
+    while (*fmt) {
+        if (*fmt == '%') {
+            fmt++;
+            switch (*fmt) {
+                case 's': {
+                    const char* str = va_arg(args, const char*);
+                    if (str) {
+                        while (*str) {
+                            dest[written++] = *str++;
+                        }
+                    }
+                    break;
+                }
+                case 'd': {
+                    int num = va_arg(args, int);
+                    char num_str[32];
+                    int_to_string(num, num_str, 10);
+                    char* p = num_str;
+                    while (*p) {
+                        dest[written++] = *p++;
+                    }
+                    break;
+                }
+                case 'c': {
+                    char c = (char)va_arg(args, int);
+                    dest[written++] = c;
+                    break;
+                }
+                case '%': {
+                    dest[written++] = '%';
+                    break;
+                }
+                default: {
+                    dest[written++] = '%';
+                    dest[written++] = *fmt;
+                    break;
+                }
+            }
+        } else {
+            dest[written++] = *fmt;
+        }
+        fmt++;
+    }
+    
+    dest[written] = '\0';
+    va_end(args);
+    return written;
 }
 
 char* strcat(char* dest, const char* src) {

@@ -11,6 +11,7 @@ int strncmp(const char* str1, const char* str2, int n);
 char* strcat(char* dest, const char* src);
 char* strstr(const char* haystack, const char* needle);
 char* strrchr(const char* str, int c);
+int sprintf(char* dest, const char* format, ...);
 void* memset(void* ptr, int value, int num);
 void* memcpy(void* dest, const void* src, int num);
 int memcmp(const void* ptr1, const void* ptr2, int num);
