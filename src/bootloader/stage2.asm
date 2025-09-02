@@ -143,7 +143,7 @@ protected_mode:
     cld
     mov esi, 0x10000
     mov edi, 0x100000
-    mov ecx, 12000 ;change here if needed
+    mov ecx, 13000 ;change here if needed
     rep movsd
     
     call 0x100000
