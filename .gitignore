@@ -28,6 +28,7 @@ obj/
 *~
 .DS_Store
 Thumbs.db
+.vscode/
 
 # QEMU temporary files and states
 *.qcow2
