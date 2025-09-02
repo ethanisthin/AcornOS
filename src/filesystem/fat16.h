@@ -61,7 +61,8 @@ typedef struct {
 typedef struct {
     char current_path[256];          
     uint16_t current_dir_cluster;    
-    bool is_root;                    
+    bool is_root;          
+    uint16_t parent_cluster;          
 } fat16_dir_context_t;
 
 #define FAT16_FREE_CLUSTER      0x0000
@@ -99,6 +100,9 @@ bool fat16_write_directory_entry(const fat16_dir_entry_t* entry);
 bool fat16_delete_directory_entry(const char* filename);
 bool fat16_read_file_content(const char* filename, void* buffer, uint32_t buffer_size, uint32_t* bytes_read);
 bool fat16_write_file_content(const char* filename, const void* buffer, uint32_t data_size);
+bool fat16_write_directory_entry_to_cluster(const fat16_dir_entry_t* entry, uint16_t dir_cluster);
+bool fat16_write_directory_entry(const fat16_dir_entry_t* entry);
+uint16_t fat16_get_current_dir_cluster(void);
 
 void fat16_test_basic_functions(void);
 void fat16_test_cluster_operations(void);
@@ -108,6 +112,16 @@ void fat16_create_boot_sector(fat16_boot_sector_t* boot_sector);
 bool fat16_format_disk(void);
 extern fat16_context_t fs_ctx;
 
+bool fat16_parse_path(const char* path, char components[][64], int* component_count);
+bool fat16_is_absolute_path(const char* path);
+uint16_t fat16_traverse_path(const char* path);
+bool fat16_read_directory_cluster(uint16_t dir_cluster, fat16_dir_entry_t* entries, int max_entries, int* entry_count);
+bool fat16_create_subdirectory(const char* dirname);
+bool fat16_is_valid_cluster(uint16_t cluster);
+uint32_t fat16_cluster_to_sector(uint16_t cluster);
 
+bool fat16_read_file_content_in_current_dir(const char* filename, void* buffer, uint32_t buffer_size, uint32_t* bytes_read);
+bool fat16_write_file_content_in_current_dir(const char* filename, const void* buffer, uint32_t data_size);
+bool fat16_update_root_directory_entry(const char* filename, uint32_t new_size, uint16_t new_first_cluster);
 
 #endif
