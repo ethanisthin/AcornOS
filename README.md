@@ -64,7 +64,7 @@ sudo apt-get install nasm gcc qemu-system-x86
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/AcornOS.git
+git clone https://github.com/ethan-almeida/AcornOS.git
 cd AcornOS
 
 # Build the OS
