@@ -1,7 +1,7 @@
 #include "keyboard.h"
 #include "vga.h"
 #include <stdbool.h>
-
+#include "../debug_params.h"
 
 static bool keyboard_initialized = false;
 static bool shift_pressed = false;
@@ -20,7 +20,9 @@ static inline uint8_t inb(uint16_t port) {
     return ret;
 }
 
-
+/**
+ * Lower case scan-code (in hex) to ASCII conversion table
+ */
 static const char scancode_to_ascii_lower[128] = {
     0,    0,   '1', '2', '3', '4', '5', '6',     
     '7',  '8', '9', '0', '-', '=', '\b', '\t',   
@@ -40,6 +42,9 @@ static const char scancode_to_ascii_lower[128] = {
     0,    0,   0,   0,   0,   0,   0,   0       
 };
 
+/**
+ * Upper case scan-code (in hex) to ASCII conversion table
+ */
 static const char scancode_to_ascii_upper[128] = {
     0,    0,   '!', '@', '#', '$', '%', '^',     
     '&',  '*', '(', ')', '_', '+', '\b', '\t',   
@@ -344,9 +349,14 @@ void keyboard_handle_special_combination(uint8_t scancode, uint8_t modifiers) {
     }
 }
 
-
+/**
+ * Keyboard init function, just calls everything really
+ */
 void keyboard_init(void) {
-    vga_printf("Initializing keyboard...\n");
+    if (KB_DEBUG){
+        vga_printf("Initializing keyboard...\n");
+    }
+    
     keyboard_buffer_init();
     keyboard_wait_input();
     outb(KEYBOARD_COMMAND_PORT, KEYBOARD_CMD_DISABLE_KEYBOARD);
@@ -372,6 +382,8 @@ void keyboard_init(void) {
     outb(KEYBOARD_COMMAND_PORT, KEYBOARD_CMD_ENABLE_KEYBOARD);
     
     keyboard_initialized = true;
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                      "Keyboard initialized successfully!\n");
+    if (KB_DEBUG){
+        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Keyboard initialized successfully!\n");
+    }
+    
 }

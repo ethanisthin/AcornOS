@@ -1,6 +1,7 @@
 #include "ata.h"
 #include "vga.h"
 #include <stdbool.h>
+#include "../debug_params.h"
 
 static bool ata_initialized = false;
 
@@ -59,26 +60,29 @@ static bool ata_wait_data(void) {
 
 
 void ata_init(void) {
-    vga_printf("Initializing ATA/IDE driver...\n");
-    
+    if (ATA_DEBUG){
+        vga_printf("Initializing ATA/IDE driver...\n");
+    }
+
     outb(ATA_PRIMARY_CTRL, 0x04);  
-    outb(ATA_PRIMARY_CTRL, 0x00);  
-    
+    outb(ATA_PRIMARY_CTRL, 0x00);      
     for (int i = 0; i < 1000; i++) {
         inb(ATA_PRIMARY_IO + ATA_REG_STATUS);
     }
     
     outb(ATA_PRIMARY_IO + ATA_REG_DRIVE, 0xA0);
-    
     if (!ata_wait_ready()) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "ATA drive not ready\n");
+        if (ATA_DEBUG){
+            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"ATA drive not ready\n");
+        }
         return;
     }
     
     ata_initialized = true;
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                      "ATA driver initialized successfully\n");
+    if (ATA_DEBUG){
+        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK, "ATA driver initialized successfully\n");
+    }
+    
 }
 
 
@@ -92,12 +96,16 @@ bool ata_identify(void) {
     
     uint8_t status = inb(ATA_PRIMARY_IO + ATA_REG_STATUS);
     if (status == 0) {
-        vga_printf("No ATA drive detected\n");
+        if (ATA_DEBUG){
+            vga_printf("No ATA drive detected\n");
+        }
         return false;
     }
     
     if (!ata_wait_data()) {
+        if (ATA_DEBUG){
         vga_printf("ATA identify failed\n");
+        }
         return false;
     }
     
@@ -105,9 +113,9 @@ bool ata_identify(void) {
     for (int i = 0; i < 256; i++) {
         identify_data[i] = inw(ATA_PRIMARY_IO + ATA_REG_DATA);
     }
-    
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                      "ATA drive identified successfully\n");
+    if (ATA_DEBUG){
+    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"ATA drive identified successfully\n");
+    }
     return true;
 }
 

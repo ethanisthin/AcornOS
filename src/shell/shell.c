@@ -24,7 +24,7 @@ static const shell_command_t commands[] = {
     {"mv", "Move/rename file", cmd_mv}, 
     {"cat", "Display file contents", cmd_cat},
     {"stat", "Show file information", cmd_stat}, 
-    {"fstest", "Run filesystem tests", cmd_fstest},
+    // {"fstest", "Run filesystem tests", cmd_fstest},
     {"format", "Format disk with FAT-16", cmd_format},
     {"mount", "Check/mount filesystem", cmd_mount},
     {"write", "Write text to file (write \"text\" > filename)", cmd_echo_to_file},
@@ -46,8 +46,7 @@ void shell_init(void) {
         memset(shell_ctx.history[i], 0, SHELL_MAX_INPUT);
     }
     
-    vga_printf_colored(VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK,
-                      "AcornOS Shell initialized\n");
+    vga_printf_colored(VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK, "AcornOS Shell initialized\n");
     vga_printf("Type 'help' for available commands\n\n");
 }
 
@@ -117,8 +116,7 @@ void shell_execute_command(shell_context_t* ctx) {
             return;
         }
     }
-    vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                      "Command not found: %s\n", cmd_name);
+    vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Command not found: %s\n", cmd_name);
     vga_printf("Type 'help' for available commands\n");
 }
 
@@ -140,8 +138,7 @@ void shell_add_to_history(shell_context_t* ctx, const char* input) {
 }
 
 void cmd_help(int argc, char* argv[]) {
-    vga_printf_colored(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK,
-                      "Available commands:\n");
+    vga_printf_colored(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK,"Available commands:\n");
     vga_printf("==================\n");
     
     for (int i = 0; commands[i].name != NULL; i++) {
@@ -174,15 +171,12 @@ void cmd_history(int argc, char* argv[]) {
         vga_printf("No command history\n");
         return;
     }
-    vga_printf_colored(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK,
-                      "Command history:\n");
+    vga_printf_colored(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK,"Command history:\n");
     
-    int start = (shell_ctx.history_count > SHELL_MAX_HISTORY) ? 
-                shell_ctx.history_count - SHELL_MAX_HISTORY : 0;
+    int start = (shell_ctx.history_count > SHELL_MAX_HISTORY) ? shell_ctx.history_count - SHELL_MAX_HISTORY : 0;
     
     for (int i = start; i < shell_ctx.history_count; i++) {
         int index = i % SHELL_MAX_HISTORY;
-        
         int num = i + 1;
         if (num < 10) {
             vga_printf("  %d: %s\n", num, shell_ctx.history[index]);
@@ -195,8 +189,7 @@ void cmd_history(int argc, char* argv[]) {
 }
 
 void cmd_about(int argc, char* argv[]) {
-    vga_printf_colored(VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK,
-                      "AcornOS v0.1\n");
+    vga_printf_colored(VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK,"AcornOS v0.1\n");
     vga_printf("=============\n");
     vga_printf("A 32-bit operating system built from scratch\n");
     vga_printf("Architecture: x86 (32-bit)\n");
@@ -214,8 +207,7 @@ void cmd_cd(int argc, char* argv[]) {
         if (fat16_change_directory("/")) {
             vga_printf("Changed to root directory\n");
         } else {
-            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                              "Failed to change to root directory\n");
+            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Failed to change to root directory\n");
         }
         return;
     }
@@ -227,22 +219,19 @@ void cmd_cd(int argc, char* argv[]) {
         const char* new_dir = fat16_get_current_directory();
         vga_printf("Changed directory: %s -> %s\n", old_dir, new_dir);
     } else {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Directory not found: %s\n", target_dir);
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Directory not found: %s\n", target_dir);
     }
 }
 
 void cmd_ls(int argc, char* argv[]) {
     const char* current_dir = fat16_get_current_directory();
     
-    vga_printf_colored(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK,
-                      "Directory listing for: ");
+    vga_printf_colored(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK,"Directory listing for: ");
     vga_printf("%s\n", current_dir);
     vga_printf("========================\n");
     
     if (!fs_ctx.mounted) {
-        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                          "Filesystem not mounted - showing simulated content\n");
+        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Filesystem not mounted - showing simulated content\n");
         return;
     }
     
@@ -254,8 +243,7 @@ void cmd_ls(int argc, char* argv[]) {
     
     // Use the new function to read current directory
     if (!fat16_read_directory_cluster(current_cluster, entries, 64, &entry_count)) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Failed to read directory\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Failed to read directory\n");
         return;
     }
     
@@ -283,32 +271,27 @@ void cmd_ls(int argc, char* argv[]) {
 
 void cmd_touch(int argc, char* argv[]) {
     if (argc < 2) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Usage: touch <filename>\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Usage: touch <filename>\n");
         return;
     }
     
     const char* filename = argv[1];
     if (fat16_create_file(filename, FAT_ATTR_ARCHIVE)) {
-        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                          "File created: %s\n", filename);
+        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"File created: %s\n", filename);
     } else {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Failed to create file: %s\n", filename);
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Failed to create file: %s\n", filename);
     }
 }
 
 void cmd_rm(int argc, char* argv[]) {
     if (argc < 2) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Usage: rm <filename>\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Usage: rm <filename>\n");
         return;
     }
     
     const char* filename = argv[1];
     if (strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Cannot remove directory entries '.' or '..'\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Cannot remove directory entries '.' or '..'\n");
         return;
     }
 
@@ -318,11 +301,9 @@ void cmd_rm(int argc, char* argv[]) {
     
     if (response == 'y' || response == 'Y') {
         if (fat16_delete_file(filename)) {
-            vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                              "File deleted: %s\n", filename);
+            vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"File deleted: %s\n", filename);
         } else {
-            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                              "Failed to delete file: %s\n", filename);
+            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Failed to delete file: %s\n", filename);
         }
     } else {
         vga_printf("File deletion cancelled\n");
@@ -331,58 +312,49 @@ void cmd_rm(int argc, char* argv[]) {
 
 void cmd_mkdir(int argc, char* argv[]) {
     if (argc < 2) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Usage: mkdir <directory_name>\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Usage: mkdir <directory_name>\n");
         return;
     }
     
     const char* dirname = argv[1];
     if (strcmp(dirname, ".") == 0 || strcmp(dirname, "..") == 0) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Invalid directory name: %s\n", dirname);
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Invalid directory name: %s\n", dirname);
         return;
     }
 
     if (fat16_create_subdirectory(dirname)) {
-        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                          "Directory created: %s\n", dirname);
+        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Directory created: %s\n", dirname);
     } else {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Failed to create directory: %s\n", dirname);
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Failed to create directory: %s\n", dirname);
     }
 }
 
 void cmd_rmdir(int argc, char* argv[]) {
     if (argc < 2) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Usage: rmdir <directory_name>\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Usage: rmdir <directory_name>\n");
         return;
     }
     
     const char* dirname = argv[1];
     if (strcmp(dirname, ".") == 0 || strcmp(dirname, "..") == 0) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Cannot remove directory entries '.' or '..'\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Cannot remove directory entries '.' or '..'\n");
         return;
     }
     
     if (strcmp(dirname, "/") == 0) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Cannot remove root directory\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Cannot remove root directory\n");
         return;
     }
 
     const char* current_dir = fat16_get_current_directory();
     if (strcmp(current_dir, dirname) == 0 || 
         (strlen(current_dir) > 1 && strcmp(current_dir + 1, dirname) == 0)) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Cannot remove current directory\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Cannot remove current directory\n");
         return;
     }
     
     if (!fs_ctx.mounted) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Filesystem not mounted\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Filesystem not mounted\n");
         return;
     }
     
@@ -392,11 +364,9 @@ void cmd_rmdir(int argc, char* argv[]) {
     
     if (response == 'y' || response == 'Y') {
         if (fat16_delete_directory_entry(dirname)) {
-            vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                              "Directory removed: %s\n", dirname);
+            vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Directory removed: %s\n", dirname);
         } else {
-            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                              "Failed to remove directory: %s\n", dirname);
+            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Failed to remove directory: %s\n", dirname);
         }
     } else {
         vga_printf("Directory removal cancelled\n");
@@ -405,22 +375,19 @@ void cmd_rmdir(int argc, char* argv[]) {
 
 void cmd_cp(int argc, char* argv[]) {
     if (argc < 3) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Usage: cp <source> <destination>\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Usage: cp <source> <destination>\n");
         return;
     }
     
     const char* source = argv[1];
     const char* dest = argv[2];
     if (strcmp(source, dest) == 0) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Source and destination are the same\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Source and destination are the same\n");
         return;
     }
     
     if (!fs_ctx.mounted) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Filesystem not mounted\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Filesystem not mounted\n");
         return;
     }
     
@@ -428,36 +395,29 @@ void cmd_cp(int argc, char* argv[]) {
     uint32_t bytes_read = 0;
     
     if (!fat16_read_file_content(source, file_buffer, sizeof(file_buffer), &bytes_read)) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Failed to read source file: %s\n", source);
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Failed to read source file: %s\n", source);
         return;
     }
     
     if (!fat16_create_file(dest, FAT_ATTR_ARCHIVE)) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Failed to create destination file: %s\n", dest);
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Failed to create destination file: %s\n", dest);
         return;
     }
     
     if (bytes_read > 0) {
         if (fat16_write_file_content(dest, file_buffer, bytes_read)) {
-            vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                              "File copied successfully: %s -> %s (%d bytes)\n", 
-                              source, dest, bytes_read);
+            vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"File copied successfully: %s -> %s (%d bytes)\n",  source, dest, bytes_read);
         } else {
-            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                              "Failed to write to destination file\n");
+            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Failed to write to destination file\n");
         }
     } else {
-        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                          "Empty file copied successfully: %s -> %s\n", source, dest);
+        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Empty file copied successfully: %s -> %s\n", source, dest);
     }
 }
 
 void cmd_mv(int argc, char* argv[]) {
     if (argc < 3) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Usage: mv <source> <destination>\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Usage: mv <source> <destination>\n");
         return;
     }
     
@@ -466,20 +426,17 @@ void cmd_mv(int argc, char* argv[]) {
     
     
     if (strcmp(source, dest) == 0) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Source and destination are the same\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Source and destination are the same\n");
         return;
     }
     
     if (strcmp(source, ".") == 0 || strcmp(source, "..") == 0) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Cannot move directory entries '.' or '..'\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Cannot move directory entries '.' or '..'\n");
         return;
     }
     
     if (!fs_ctx.mounted) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Filesystem not mounted\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Filesystem not mounted\n");
         return;
     }
     
@@ -495,35 +452,29 @@ void cmd_mv(int argc, char* argv[]) {
             fat16_filename_to_83(dest, new_entry.filename);
             if (fat16_write_directory_entry(&new_entry)) {
                 if (fat16_delete_directory_entry(source)) {
-                    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                                      "File moved successfully: %s -> %s\n", source, dest);
+                    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"File moved successfully: %s -> %s\n", source, dest);
                     vga_printf("Note: Only directory entry moved (file content not relocated)\n");
                 } else {
-                    vga_printf_colored(VGA_COLOR_CYAN, VGA_COLOR_BLACK,
-                                      "File copied but failed to delete source: %s\n", source);
+                    vga_printf_colored(VGA_COLOR_CYAN, VGA_COLOR_BLACK,"File copied but failed to delete source: %s\n", source);
                 }
             } else {
-                vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                                  "Failed to create destination file\n");
+                vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Failed to create destination file\n");
             }
             return;
         }
     }
-    vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                      "Source file not found: %s\n", source);
+    vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Source file not found: %s\n", source);
 }
 
 void cmd_cat(int argc, char* argv[]) {
     if (argc < 2) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Usage: cat <filename>\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Usage: cat <filename>\n");
         return;
     }
     
     const char* filename = argv[1];
     static char file_buffer[4096];
     uint32_t bytes_read;
-    
     if (fat16_read_file_content(filename, file_buffer, sizeof(file_buffer) - 1, &bytes_read)) {
         file_buffer[bytes_read] = '\0';
         
@@ -536,22 +487,19 @@ void cmd_cat(int argc, char* argv[]) {
                           filename);
         vga_printf("%s\n", file_buffer);
     } else {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Failed to read file: %s\n", filename);
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Failed to read file: %s\n", filename);
     }
 }
 
 void cmd_stat(int argc, char* argv[]) {
     if (argc < 2) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Usage: stat <filename>\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Usage: stat <filename>\n");
         return;
     }
 
     const char* filename = argv[1];
     if (!fs_ctx.mounted) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Filesystem not mounted\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Filesystem not mounted\n");
         return;
     }
 
@@ -563,8 +511,7 @@ void cmd_stat(int argc, char* argv[]) {
         fat16_83_to_filename(entry->filename, entry_filename);
     
         if (strcmp(entry_filename, filename) == 0) {
-            vga_printf_colored(VGA_COLOR_CYAN, VGA_COLOR_BLACK,
-                              "File information for: %s\n", filename);
+            vga_printf_colored(VGA_COLOR_CYAN, VGA_COLOR_BLACK,"File information for: %s\n", filename);
             vga_printf("========================\n");
             
             if (entry->attributes & FAT_ATTR_DIRECTORY) {
@@ -594,41 +541,23 @@ void cmd_stat(int argc, char* argv[]) {
             return;
         }
     }
-    vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                      "File not found: %s\n", filename);
+    vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"File not found: %s\n", filename);
 }
 
-void cmd_fstest(int argc, char* argv[]) {
-    vga_printf_colored(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK,
-                      "Running FAT-16 Filesystem Tests\n");
-    vga_printf("================================\n\n");
-    
-    fat16_test_basic_functions();
-    fat16_test_cluster_operations();
-    fat16_test_filename_conversion();
-    fat16_test_file_operations();
-    
-    vga_printf_colored(VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK,
-                      "All tests completed!\n");
-}
 
 void cmd_format(int argc, char* argv[]) {
-    vga_printf_colored(VGA_COLOR_BROWN, VGA_COLOR_BLACK,
-                      "WARNING: This will format the disk with FAT-16!\n");
+    vga_printf_colored(VGA_COLOR_BROWN, VGA_COLOR_BLACK, "WARNING: This will format the disk with FAT-16!\n");
     vga_printf("Continue? (y/n): ");
-    
     char response = keyboard_getchar();
     vga_printf("%c\n", response);
     
     if (response == 'y' || response == 'Y') {
         vga_printf("Starting format operation...\n");
         if (fat16_format_disk()) {
-            vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                              "Disk formatted successfully!\n");
+            vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Disk formatted successfully!\n");
             vga_printf("Returning to shell...\n");
         } else {
-            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                              "Disk formatting failed!\n");
+            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Disk formatting failed!\n");
         }
         vga_printf("Format command completed\n");
     } else {
@@ -650,11 +579,9 @@ void cmd_mount(int argc, char* argv[]) {
         vga_printf("fat16_mount() returned: %s\n", mount_result ? "true" : "false");
         
         if (mount_result) {
-            vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                              "Mount successful!\n");
+            vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Mount successful!\n");
         } else {
-            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                              "Mount failed!\n");
+            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Mount failed!\n");
         }
     } else {
         vga_printf("Filesystem already mounted:\n");
@@ -669,8 +596,7 @@ void cmd_mount(int argc, char* argv[]) {
 
 void cmd_echo_to_file(int argc, char* argv[]) {
     if (argc < 4) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Usage: write text > filename\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Usage: write text > filename\n");
         vga_printf("Example: write hello > test.txt\n");
         vga_printf("Example: write hello world > test.txt\n");
         return;
@@ -685,16 +611,14 @@ void cmd_echo_to_file(int argc, char* argv[]) {
     }
     
     if (redirect_pos == -1 || redirect_pos == argc - 1) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Invalid syntax. Use: write text > filename\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Invalid syntax. Use: write text > filename\n");
         return;
     }
     
     const char* filename = argv[redirect_pos + 1];
     
     if (!fs_ctx.mounted) {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Filesystem not mounted\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Filesystem not mounted\n");
         return;
     }
     
@@ -709,11 +633,9 @@ void cmd_echo_to_file(int argc, char* argv[]) {
     }
     
     if (fat16_write_file_content(filename, text_buffer, strlen(text_buffer))) {
-        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                          "Text written to file: %s\n", filename);
+        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Text written to file: %s\n", filename);
     } else {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "Failed to write to file: %s\n", filename);
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Failed to write to file: %s\n", filename);
     }
 }
 

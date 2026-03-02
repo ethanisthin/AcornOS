@@ -1,12 +1,30 @@
+/**
+ * This file relates to implementing an interrupt-driven system for this OS. Specifically, sets up the IDT so that 
+ * the CPU knows what code to run when a certain interrupt or event (in general) occurs
+ * 
+ * Author: Ethan D'Almeida
+ * 
+ * File: interrupts.c
+ * 
+ */
+
 #include "interrupts.h"
 #include "../drivers/vga.h"
 #include "pic.h"
 #include "timer.h"
 #include "../drivers/keyboard.h"
+#include "../debug_params.h"
 
 static idt_entry_t idt[IDT_ENTRIES];
 static idt_descriptor_t idt_desc;
 
+/**
+ * Description: fills an entry in the IDT table
+ * @param num: slot to fill in the table
+ * @param handler: which offset to choose i.e., offset high or offset low
+ * @param selector: code segment select
+ * @param flags: describes the type and privilege of said gate
+ */
 void idt_set_gate(uint8_t num, uint32_t handler, uint16_t selector, uint8_t flags) {
     idt[num].offset_low = handler & 0xFFFF;
     idt[num].offset_high = (handler >> 16) & 0xFFFF;
@@ -15,51 +33,55 @@ void idt_set_gate(uint8_t num, uint32_t handler, uint16_t selector, uint8_t flag
     idt[num].type_attr = flags;
 }
 
+/**
+ * Description: used to calculate table size, fill the descriptor struct
+ */
 void idt_load(void) {
     idt_desc.limit = (sizeof(idt_entry_t) * IDT_ENTRIES) - 1;
     idt_desc.base = (uint32_t)&idt;
     __asm__ volatile ("lidt %0" : : "m" (idt_desc));
 }
 
+
+/**
+ * Description: handles interrupts on a case-by-case basis for CPU exceptions (i.e., ISR 0-31)
+ * @param regs: by reference to the register struct
+ */
 void interrupt_handler(registers_t regs) {
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                      "Interrupt %d received! Error code: %d\n", 
-                      regs.int_no, regs.err_code);
+    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Interrupt %d received! Error code: %d\n", regs.int_no, regs.err_code);
     switch(regs.int_no) {
         case 0:
-            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                              "FATAL: Division by zero exception!\n");
+            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"FATAL: Division by zero exception!\n");
             vga_printf("System halted.\n");
             break;
         case 6:
-            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                              "FATAL: Invalid opcode exception!\n");
+            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"FATAL: Invalid opcode exception!\n");
             vga_printf("System halted.\n");
             break;
         case 13:
-            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                              "FATAL: General protection fault!\n");
+            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"FATAL: General protection fault!\n");
             vga_printf("System halted.\n");
             break;
         case 14:
-            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                              "FATAL: Page fault exception!\n");
+            vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"FATAL: Page fault exception!\n");
             vga_printf("System halted.\n");
             break;
         default:
-            vga_printf_colored(VGA_COLOR_CYAN, VGA_COLOR_BLACK,
-                              "Unhandled interrupt: %d\n", regs.int_no);
+            vga_printf_colored(VGA_COLOR_CYAN, VGA_COLOR_BLACK,"Unhandled interrupt: %d\n", regs.int_no);
             break;
     }
 
     if (regs.int_no <= 31) {  
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,
-                          "CPU Exception - System Halted!\n");
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"CPU Exception - System Halted!\n");
         __asm__ volatile ("cli; hlt"); 
         while(1); 
     }
 }
 
+/**
+ * Description: handles IRQ for interrupts (32-47)
+ * @param regs: by reference to the register struct
+ */
 void irq_handler(registers_t regs) {
     uint8_t irq = regs.int_no - 32;
     
@@ -71,14 +93,17 @@ void irq_handler(registers_t regs) {
             keyboard_handler();
             break;
         default:
-            vga_printf_colored(VGA_COLOR_CYAN, VGA_COLOR_BLACK,
-                              "Unhandled IRQ: %d\n", irq);
+            vga_printf_colored(VGA_COLOR_CYAN, VGA_COLOR_BLACK,"Unhandled IRQ: %d\n", irq);
             break;
     }
     pic_send_eoi(irq);
 }
 
+/**
+ * Description: initialize every single interrupt
+ */
 void idt_init(void) {
+    //can probably do a better job here, should look into it
     extern void isr0(void);  extern void isr1(void);  extern void isr2(void);  extern void isr3(void);
     extern void isr4(void);  extern void isr5(void);  extern void isr6(void);  extern void isr7(void);
     extern void isr8(void);  extern void isr9(void);  extern void isr10(void); extern void isr11(void);
@@ -143,6 +168,8 @@ void idt_init(void) {
     idt_set_gate(47, (uint32_t)irq15, 0x08, IDT_INTERRUPT_GATE);
     
     idt_load();
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK, 
-                      "IDT initialized with exception handlers\n");
+    if (INT_DEBUG){
+        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK, "IDT initialized with exception handlers\n");
+    }
+    
 }

@@ -1,5 +1,6 @@
 #include "pic.h"
 #include "../drivers/vga.h"
+#include "../debug_params.h"
 
 
 static inline void outb(uint16_t port, uint8_t val) {
@@ -46,16 +47,22 @@ void pic_remap(uint8_t offset1, uint8_t offset2) {
 }
 
 void pic_init(void) {
-    vga_printf("Initializing PIC...\n");
+    if (PIC_DEBUG){
+        vga_printf("Initializing PIC...\n");
+    }
+    
     pic_remap(PIC1_OFFSET, PIC2_OFFSET);
     
     outb(PIC1_DATA, 0xFF);
     outb(PIC2_DATA, 0xFF);
     
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
+    if (PIC_DEBUG){
+        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
                       "PIC initialized - Master: IRQ %d-%d, Slave: IRQ %d-%d\n",
                       PIC1_OFFSET, PIC1_OFFSET + 7,
                       PIC2_OFFSET, PIC2_OFFSET + 7);
+    }
+    
 }
 
 void pic_send_eoi(uint8_t irq) {
@@ -98,7 +105,10 @@ void pic_disable_irq(uint8_t irq) {
 void pic_disable(void) {
     outb(PIC1_DATA, 0xFF);
     outb(PIC2_DATA, 0xFF);
-    vga_printf("PIC disabled\n");
+    if (PIC_DEBUG){
+        vga_printf("PIC disabled\n");
+    }
+    
 }
 
 uint16_t pic_get_irr(void) {

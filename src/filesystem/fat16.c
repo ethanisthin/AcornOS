@@ -4,6 +4,7 @@
 #include "../drivers/ata.h"
 #include <stdbool.h>
 #include "../vim_editor/editor.h"
+#include "../debug_params.h"
 
 /* Global Variables */
 fat16_context_t fs_ctx;
@@ -27,25 +28,19 @@ static bool fat16_load_fat_table(void) {
         return false;
     }
     
-    
     uint32_t fat_size_bytes = fs_ctx.boot_sector.sectors_per_fat * fs_ctx.boot_sector.bytes_per_sector;
     uint32_t fat_entries = fat_size_bytes / 2; 
-    
-    vga_printf("FAT table info: %d sectors, %d bytes, %d entries\n", 
-               fs_ctx.boot_sector.sectors_per_fat, fat_size_bytes, fat_entries);
-    
-    
+    vga_printf("FAT table info: %d sectors, %d bytes, %d entries\n", fs_ctx.boot_sector.sectors_per_fat, fat_size_bytes, fat_entries);
     static uint16_t fat_buffer[8192]; 
-    
     if (fat_entries > 8192) {
-        vga_printf("FAT table too large for buffer (need %d, have 8192)\n", fat_entries);
+        if (FS_DEBUG){
+            vga_printf("FAT table too large for buffer (need %d, have 8192)\n", fat_entries);
+        }
         return false;
     }
-    
-    
+
     uint8_t sector_buffer[512];
     uint16_t* fat_ptr = fat_buffer;
-    
     vga_printf("Loading FAT table from sector %d...\n", fs_ctx.fat_start_sector);
     
     for (uint32_t sector = 0; sector < fs_ctx.boot_sector.sectors_per_fat; sector++) {
@@ -53,8 +48,6 @@ static bool fat16_load_fat_table(void) {
             vga_printf("Failed to read FAT sector %d\n", sector);
             return false;
         }
-        
-        
         memcpy(fat_ptr, sector_buffer, 512);
         fat_ptr += 256; 
     }
@@ -884,134 +877,6 @@ bool fat16_change_directory(const char* dirname) {
     
     vga_printf("Directory not found: %s\n", dirname);
     return false;
-}
-
-
-void fat16_test_basic_functions(void) {
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                      "=== Testing Basic FAT-16 Functions ===\n");
-    
-    
-    vga_printf("Testing initialization... ");
-    fat16_init();
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK, "PASS\n");
-    
-    
-    vga_printf("Testing mount (should fail)... ");
-    if (!fat16_mount()) {
-        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK, "PASS (expected failure)\n");
-    } else {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK, "FAIL (unexpected success)\n");
-    }
-    
-    
-    vga_printf("Testing disk read... ");
-    static uint8_t test_buffer[512];
-    if (fat16_read_sector(0, test_buffer)) {
-        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK, "PASS (sector 0 read)\n");
-    } else {
-        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK, "WARN (disk read failed)\n");
-    }
-    
-    vga_printf("\n");
-}
-
-
-void fat16_test_cluster_operations(void) {
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                      "=== Testing Cluster Operations ===\n");
-    
-    
-    fs_ctx.mounted = true;
-    fs_ctx.total_clusters = 100;
-    
-    
-    static uint16_t test_fat[102]; 
-    fs_ctx.fat_table = test_fat;
-    
-    
-    test_fat[0] = 0xFFF8; 
-    test_fat[1] = 0xFFFF; 
-    for (int i = 2; i < 102; i++) {
-        test_fat[i] = FAT16_FREE_CLUSTER;
-    }
-    
-    
-    vga_printf("Testing find free cluster... ");
-    uint16_t free_cluster = fat16_find_free_cluster();
-    if (free_cluster == 2) {
-        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK, "PASS (found cluster %d)\n", free_cluster);
-    } else {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK, "FAIL (expected 2, got %d)\n", free_cluster);
-    }
-    
-    vga_printf("\n");
-}
-
-
-void fat16_test_filename_conversion(void) {
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                      "=== Testing Filename Conversion ===\n");
-    
-    char fat_name[12];
-    char filename[256];
-    
-    
-    vga_printf("Testing 'test.txt' conversion... ");
-    fat16_filename_to_83("test.txt", fat_name);
-    fat_name[11] = '\0'; 
-    
-    
-    if (fat_name[0] == 't' && fat_name[1] == 'e' && fat_name[2] == 's' && fat_name[3] == 't' &&
-        fat_name[4] == ' ' && fat_name[8] == 't' && fat_name[9] == 'x' && fat_name[10] == 't') {
-        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK, "PASS\n");
-    } else {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK, "FAIL\n");
-    }
-    
-    
-    vga_printf("Testing reverse conversion... ");
-    fat16_83_to_filename(fat_name, filename);
-    if (strcmp(filename, "test.txt") == 0) {
-        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK, "PASS\n");
-    } else {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK, "FAIL (got '%s')\n", filename);
-    }
-    
-    vga_printf("\n");
-}
-
-
-void fat16_test_file_operations(void) {
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                      "=== Testing File Operations ===\n");
-    
-    fs_ctx.mounted = true;
-    fs_ctx.boot_sector.sectors_per_cluster = 1;
-    fs_ctx.boot_sector.bytes_per_sector = 512;
-    fs_ctx.data_start_sector = 100;
-    
-    
-    vga_printf("Testing cluster to sector conversion... ");
-    uint32_t sector = fat16_cluster_to_sector(2);
-    if (sector == 100) { 
-        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK, "PASS (cluster 2 -> sector %d)\n", sector);
-    } else {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK, "FAIL (expected 100, got %d)\n", sector);
-    }
-    
-    
-    vga_printf("Testing directory entry creation... ");
-    fat16_dir_entry_t test_entry;
-    fat16_create_dir_entry(&test_entry, "test.txt", FAT_ATTR_ARCHIVE, 5, 1024);
-    if (test_entry.first_cluster_low == 5 && test_entry.file_size == 1024 && 
-        test_entry.attributes == FAT_ATTR_ARCHIVE) {
-        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK, "PASS\n");
-    } else {
-        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK, "FAIL\n");
-    }
-    
-    vga_printf("\n");
 }
 
 

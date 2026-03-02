@@ -1,6 +1,7 @@
 #ifndef VGA_H
 #define VGA_H
 
+// resolution configs, may need to change this later to scale on window resize
 #define WIDTH 80
 #define HEIGHT 25
 #define MEMORY 0xB8000

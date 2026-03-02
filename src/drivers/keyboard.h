@@ -19,6 +19,7 @@
 #define KEYBOARD_CMD_DISABLE_KEYBOARD 0xAD
 #define KEYBOARD_CMD_ENABLE_KEYBOARD 0xAE
 
+// non-alphabetic keybinds
 #define KEY_ESCAPE    0x01
 #define KEY_BACKSPACE 0x0E
 #define KEY_TAB       0x0F
@@ -46,6 +47,7 @@
 
 #define KEYBOARD_BUFFER 256
 
+// special keybinds
 #define KEY_MOD_SHIFT    0x01
 #define KEY_MOD_CTRL     0x02
 #define KEY_MOD_ALT      0x04
