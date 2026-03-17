@@ -1,11 +1,22 @@
+/**
+ * This file manages the PIT for this OS. Helps in setting interrupts throughout 
+ */
+
 #include "timer.h"
 #include "../drivers/vga.h"
 #include "pic.h"
 
+/**
+ * @param port: port to which we are writing
+ * @param val: value being written to port
+ */
 static inline void outb(uint16_t port, uint8_t val) {
     __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
 }
 
+/**
+ * @param port: port to which we are writing
+*/
 static inline uint8_t inb(uint16_t port) {
     uint8_t ret;
     __asm__ volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
@@ -19,9 +30,7 @@ void timer_handler(void) {
     timer_ticks++;
     if (timer_ticks % timer_frequency == 0) {
         uint32_t seconds = timer_ticks / timer_frequency;
-        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                          "Timer: %d seconds elapsed (%d ticks)\n", 
-                          seconds, timer_ticks);
+        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Timer: %d seconds elapsed (%d ticks)\n", seconds, timer_ticks);
     }
 }
 
@@ -42,9 +51,7 @@ void timer_init(uint32_t frequency) {
     outb(PIT_CHANNEL0, divisor & 0xFF);
     outb(PIT_CHANNEL0, (divisor >> 8) & 0xFF);
     
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                      "Timer initialized: %d Hz (divisor: %d)\n", 
-                      frequency, divisor);
+    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Timer initialized: %d Hz (divisor: %d)\n", frequency, divisor);
 }
 
 uint32_t timer_get_ticks(void) {

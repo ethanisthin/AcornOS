@@ -224,8 +224,7 @@ bool fat16_mount(void) {
     
     fs_ctx.mounted = true;
     
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                      "FAT-16 filesystem mounted successfully!\n");
+    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"FAT-16 filesystem mounted successfully!\n");
     vga_printf("FAT starts at sector: %d\n", fs_ctx.fat_start_sector);
     vga_printf("Root directory at sector: %d\n", fs_ctx.root_dir_start_sector);
     vga_printf("Data area at sector: %d\n", fs_ctx.data_start_sector);
