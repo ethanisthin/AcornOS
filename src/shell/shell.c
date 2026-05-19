@@ -3,6 +3,7 @@
 #include "../drivers/keyboard.h"
 #include "../lib/string/string.h"
 #include "../filesystem/fat16.h"
+#include "../vim_editor/editor.h"
 
 static shell_context_t shell_ctx;
 
