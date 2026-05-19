@@ -102,6 +102,6 @@ $(BUILD)/main_disk.img: $(BUILD)/stage1.bin $(BUILD)/stage2.bin $(BUILD)/kernel.
 	@echo "Disk image created successfully"
 
 run: $(BUILD)/main_disk.img
-	qemu-system-i386 -drive format=raw,file=build/main_disk.img -vnc :0
+	qemu-system-i386 -drive format=raw,file=build/main_disk.img
 clean:
 	rm -rf $(BUILD)
