@@ -6,15 +6,18 @@
 #include "../filesystem/fat16.h"
 #include "../drivers/ata.h"
 #include "../debug_params.h"
+#include "../arch/timer.h"
 
 
 void kernel_main() {
     vga_init();    
     idt_init();
+    timer_init(100);
     pic_init();
     keyboard_init();
-    __asm__ volatile ("sti");
-    pic_enable_irq(1);    
+    pic_enable_irq(0);
+    pic_enable_irq(1);
+    __asm__ volatile ("sti");    
     ata_init();
     if (KN_DEBUG){
         if (ata_identify()) {
