@@ -8,5 +8,6 @@
 #define PIC_DEBUG 0 //PIC driver
 #define ATA_DEBUG 0 //ATA driver
 #define KN_DEBUG 0 //kernel
+#define TIMER_DEBUG 0 //timer stuff
 
 #endif
