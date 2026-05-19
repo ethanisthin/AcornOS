@@ -1,6 +1,7 @@
 #include "../drivers/vga.h"
 #include "../lib/string/string.h"
 #include <stdarg.h>
+#include "../arch/io.h"
 
 /* Global Variables */
 static volatile unsigned short* vga_buffer = (volatile unsigned short*)MEMORY;
@@ -9,16 +10,7 @@ static vga_colours current_bg = VGA_COLOR_BLACK;
 static int cursor_x = 0;
 static int cursor_y = 0;
 
-/* Port functions */
-static inline void outb(unsigned short port, unsigned char val) {
-    __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
-}
 
-static inline unsigned char inb(unsigned short port) {
-    unsigned char ret;
-    __asm__ volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
-    return ret;
-}
 
 static inline unsigned short vga_entry(char c, vga_colours fg, vga_colours bg) {
     return (unsigned short)c | ((unsigned short)(fg | (bg << 4)) << 8);

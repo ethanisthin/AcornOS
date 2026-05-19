@@ -5,23 +5,10 @@
 #include "timer.h"
 #include "../drivers/vga.h"
 #include "pic.h"
+#include "io.h"
+#include "../debug_params.h"
 
-/**
- * @param port: port to which we are writing
- * @param val: value being written to port
- */
-static inline void outb(uint16_t port, uint8_t val) {
-    __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
-}
 
-/**
- * @param port: port to which we are writing
-*/
-static inline uint8_t inb(uint16_t port) {
-    uint8_t ret;
-    __asm__ volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
-    return ret;
-}
 
 static uint32_t timer_ticks = 0;
 static uint32_t timer_frequency = 0;
@@ -30,7 +17,9 @@ void timer_handler(void) {
     timer_ticks++;
     if (timer_ticks % timer_frequency == 0) {
         uint32_t seconds = timer_ticks / timer_frequency;
-        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Timer: %d seconds elapsed (%d ticks)\n", seconds, timer_ticks);
+        if (TIMER_DEBUG) {
+            vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Timer: %d seconds elapsed (%d ticks)\n", seconds, timer_ticks);
+        }
     }
 }
 
