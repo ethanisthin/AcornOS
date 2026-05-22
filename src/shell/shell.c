@@ -139,6 +139,8 @@ void shell_add_to_history(shell_context_t* ctx, const char* input) {
 }
 
 void cmd_help(int argc, char* argv[]) {
+    (void)argc;
+    (void)argv;
     vga_printf_colored(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK,"Available commands:\n");
     vga_printf("==================\n");
     
@@ -154,6 +156,8 @@ void cmd_help(int argc, char* argv[]) {
 }
 
 void cmd_clear(int argc, char* argv[]) {
+    (void)argc;
+    (void)argv;
     vga_clear();
 }
 
@@ -168,6 +172,8 @@ void cmd_echo(int argc, char* argv[]) {
 }
 
 void cmd_history(int argc, char* argv[]) {
+    (void)argc;
+    (void)argv;
     if (shell_ctx.history_count == 0) {
         vga_printf("No command history\n");
         return;
@@ -190,6 +196,8 @@ void cmd_history(int argc, char* argv[]) {
 }
 
 void cmd_about(int argc, char* argv[]) {
+    (void)argc;
+    (void)argv;
     vga_printf_colored(VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK,"AcornOS v0.1\n");
     vga_printf("=============\n");
     vga_printf("A 32-bit operating system built from scratch\n");
@@ -199,6 +207,8 @@ void cmd_about(int argc, char* argv[]) {
 }
 
 void cmd_pwd(int argc, char* argv[]) {
+    (void)argc;
+    (void)argv;
     const char* current_dir = fat16_get_current_directory();
     vga_printf("%s\n", current_dir);
 }
@@ -225,6 +235,8 @@ void cmd_cd(int argc, char* argv[]) {
 }
 
 void cmd_ls(int argc, char* argv[]) {
+    (void)argc;
+    (void)argv;
     const char* current_dir = fat16_get_current_directory();
     
     vga_printf_colored(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK,"Directory listing for: ");
@@ -547,6 +559,8 @@ void cmd_stat(int argc, char* argv[]) {
 
 
 void cmd_format(int argc, char* argv[]) {
+    (void)argc;
+    (void)argv;
     vga_printf_colored(VGA_COLOR_BROWN, VGA_COLOR_BLACK, "WARNING: This will format the disk with FAT-16!\n");
     vga_printf("Continue? (y/n): ");
     char response = keyboard_getchar();
@@ -567,6 +581,8 @@ void cmd_format(int argc, char* argv[]) {
 }
 
 void cmd_mount(int argc, char* argv[]) {
+    (void)argc;
+    (void)argv;
     vga_printf("=== Mounting the File System ===\n");
     
     vga_printf("Checking filesystem status...\n");

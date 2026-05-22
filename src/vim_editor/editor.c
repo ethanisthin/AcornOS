@@ -240,7 +240,7 @@ void editor_handle_command_line_mode(uint8_t scancode, char ascii) {
                 editor_state.command_buffer[0] = '\0';  
                 editor_state.command_pos = 0;
             } else if (ascii && ascii >= 32 && ascii <= 126 && 
-                editor_state.command_pos < sizeof(editor_state.command_buffer) - 1) {
+                editor_state.command_pos < (int)sizeof(editor_state.command_buffer) - 1) {
                 editor_state.command_buffer[editor_state.command_pos] = ascii;
                 editor_state.command_pos++;
                 editor_state.command_buffer[editor_state.command_pos] = '\0';

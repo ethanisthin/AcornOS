@@ -64,7 +64,7 @@ static bool fat16_save_fat_table(void) {
         return false;
     }
     
-    uint32_t fat_size_bytes = fs_ctx.boot_sector.sectors_per_fat * fs_ctx.boot_sector.bytes_per_sector;
+    // uint32_t fat_size_bytes = fs_ctx.boot_sector.sectors_per_fat * fs_ctx.boot_sector.bytes_per_sector;
     
     for (int fat_copy = 0; fat_copy < fs_ctx.boot_sector.fat_count; fat_copy++) {
         uint32_t fat_start = fs_ctx.fat_start_sector + (fat_copy * fs_ctx.boot_sector.sectors_per_fat);
@@ -423,7 +423,7 @@ static bool fat16_is_directory(const fat16_dir_entry_t* entry) {
     return (entry->attributes & FAT_ATTR_DIRECTORY) != 0;
 }
 
-static bool fat16_is_regular_file(const fat16_dir_entry_t* entry) {
+static bool __attribute__((unused)) fat16_is_regular_file(const fat16_dir_entry_t* entry) {
     return !fat16_is_entry_empty(entry) && 
            !fat16_is_directory(entry) &&
            !(entry->attributes & FAT_ATTR_VOLUME_ID);
@@ -768,12 +768,12 @@ bool fat16_delete_file(const char* filename) {
     
     if (first_cluster >= 2 && fs_ctx.fat_table) {
         uint16_t current_cluster = first_cluster;
-        int clusters_freed = 0;
+        // int clusters_freed = 0;
         while (current_cluster >= 2 && current_cluster < 0xFFF8) {
             uint16_t next_cluster = fs_ctx.fat_table[current_cluster];
             
             fs_ctx.fat_table[current_cluster] = FAT16_FREE_CLUSTER;
-            clusters_freed++;
+            // clusters_freed++;
             
             if (next_cluster >= 0xFFF8) {
                 break; 

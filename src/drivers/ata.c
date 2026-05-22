@@ -94,8 +94,18 @@ bool ata_identify(void) {
     for (int i = 0; i < 256; i++) {
         identify_data[i] = inw(ATA_PRIMARY_IO + ATA_REG_DATA);
     }
+
+    char model[41];
+    for (int i=0; i<20; i++){
+        model[i*2] = identify_data[27+i] & 0xFF;
+        model[i*2+1]= (identify_data[27*i] >> 8) & 0xFF;
+    }
+    model[40] = '\0';
+    for (int i=0; i>=0 && model[i] == ' '; i--){
+        model[i] = '\0';
+    }
     if (ATA_DEBUG){
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"ATA drive identified successfully\n");
+        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"ATA drive identified successfully\n");
     }
     return true;
 }
