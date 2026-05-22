@@ -1,3 +1,9 @@
+/**
+    shell.c
+
+    - includes all implementation of the shell functionality in AcornOS
+*/
+
 #include "shell.h"
 #include "../drivers/vga.h"
 #include "../drivers/keyboard.h"
@@ -7,7 +13,11 @@
 
 static shell_context_t shell_ctx;
 
+/*
+    shell_command_t
 
+    - all the supported commands by the shell, will be updated if there is anything to add
+*/
 static const shell_command_t commands[] = {
     {"help", "Show available commands", cmd_help},
     {"clear", "Clear the screen", cmd_clear},
@@ -33,6 +43,12 @@ static const shell_command_t commands[] = {
     {NULL, NULL, NULL} 
 };
 
+/*
+    shell_init()
+
+    - init function for all shell functions (old and new)
+
+*/
 void shell_init(void) {
     shell_ctx.argc = 0;
     shell_ctx.history_count = 0;
@@ -49,7 +65,66 @@ void shell_init(void) {
     
     vga_printf_colored(VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK, "AcornOS Shell initialized\n");
     vga_printf("Type 'help' for available commands\n\n");
+
+    keyboard_tab_handle(shell_tab_handle);
+    keyboard_history_handle(shell_history_handle);
 }
+
+/*
+    shell_history_handle()
+
+    - a function that implements command history using arrow keys
+
+*/
+void shell_history_handle(char* buffer, uint32_t* pos, uint32_t max_length, int direction){
+    static bool browsing = false;
+    static char saved_input[SHELL_MAX_INPUT];
+    static int browse_idx = 0;
+
+    if (shell_ctx.history_count == 0){
+        return;
+    }
+
+    if (!browsing) {
+        if (direction != -1) return; 
+        strncpy(saved_input, buffer, SHELL_MAX_INPUT - 1);
+        saved_input[SHELL_MAX_INPUT - 1] = '\0';
+        browsing = true;
+        browse_idx = shell_ctx.history_count - 1;
+    } else {
+        browse_idx += direction; 
+        if (browse_idx < 0) {
+            browse_idx = 0;
+            return;
+        }
+        if (browse_idx >= shell_ctx.history_count) {
+            browsing = false;
+            strncpy(buffer, saved_input, max_length - 1);
+            buffer[max_length - 1] = '\0';
+            *pos = strlen(buffer);
+            for (uint32_t i = 0; i < *pos; i++) {
+                vga_printf("\b \b");
+            }
+            *pos = strlen(saved_input);
+            vga_printf("%s", saved_input);
+            return;
+        }
+    }
+
+    int idx = browse_idx % SHELL_MAX_HISTORY;
+    const char* entry = shell_ctx.history[idx];
+
+    for (uint32_t i = 0; i < *pos; i++) {
+        vga_printf("\b \b");
+    }
+    
+    strncpy(buffer, entry, max_length - 1);
+    buffer[max_length - 1] = '\0';
+    *pos = strlen(entry);
+    vga_printf("%s", entry);
+
+}
+
 
 void shell_run(void) {
     while (1) {

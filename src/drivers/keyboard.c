@@ -11,6 +11,7 @@ static bool alt_pressed = false;
 static bool caps_lock = false;
 static keyboard_buffer_t kb_buffer;
 static tab_completion_fn tab_handler = NULL;
+static history_nav_fn history_handler = NULL;
 
 /**
  * Lower case scan-code (in hex) to ASCII conversion table
@@ -119,6 +120,9 @@ void keyboard_tab_handle(tab_completion_fn handler){
     tab_handler = handler;
 }
 
+void keyboard_history_handle(history_nav_fn handler){
+    history_handler = handler;
+}
 
 
 void keyboard_gets(char* buffer, uint32_t max_length) {
@@ -142,6 +146,14 @@ void keyboard_gets(char* buffer, uint32_t max_length) {
         } else if (c == '\t') {
             if (tab_handler){
                 tab_handler(buffer, &pos, max_length);
+            }
+        } else if (c == KEY_HISTORY_PREV){
+            if (history_handler){
+                history_handler(buffer, &pos, max_length, -1);
+            }
+        } else if (c == KEY_HISTORY_NEXT) {
+            if (history_handler){
+                history_handler(buffer, &pos, max_length, 1);
             }
         }
     }
@@ -223,7 +235,9 @@ key_result_t keyboard_scancode_to_ascii(uint8_t scancode) {
         case KEY_CAPSLOCK:
             result.is_special = true;
             return result;
-            
+        
+        
+
         default:
             result.ascii = keyboard_get_ascii_char(scancode, shift_pressed);
             result.is_printable = (result.ascii != 0);
@@ -253,6 +267,14 @@ void keyboard_handler(void) {
                 
             case KEY_CAPSLOCK:
                 caps_lock = !caps_lock;
+                return;
+
+            case KEY_UP_ARROW:
+                keyboard_buffer_put(KEY_HISTORY_PREV);
+                return;
+        
+            case KEY_DOWN_ARROW:
+                keyboard_buffer_put(KEY_HISTORY_NEXT);
                 return;
         }
     

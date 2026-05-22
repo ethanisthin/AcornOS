@@ -54,4 +54,8 @@ void cmd_edit(int argc, char* argv[]);
 
 /* shell tab completion */
 void shell_tab_handle(char* buffer, uint32_t* pos, uint32_t max_length);
+
+/* shell arrow key history */
+void shell_history_handle(char* buffer, uint32_t* pos, uint32_t max_length, int direction);
+
 #endif

@@ -53,6 +53,9 @@
 #define KEY_MOD_ALT      0x04
 #define KEY_MOD_CAPS     0x08
 
+#define KEY_HISTORY_PREV 0x01
+#define KEY_HISTORY_NEXT 0x02
+
 typedef struct {
     char ascii;
     bool is_printable;
@@ -107,5 +110,8 @@ void keyboard_handle_special_combination(uint8_t scancode, uint8_t modifiers);
 typedef void (*tab_completion_fn)(char* buffer, uint32_t* pos, uint32_t max_length);
 void keyboard_tab_handle(tab_completion_fn handler);
 
+/* arrow key history */
+typedef void (*history_nav_fn)(char* buffer, uint32_t* pos, uint32_t max_length, int direction);
+void keyboard_history_handle(history_nav_fn handler);
 
 #endif
