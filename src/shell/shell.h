@@ -52,4 +52,6 @@ void cmd_mount(int argc, char* argv[]);
 void cmd_echo_to_file(int argc, char* argv[]);
 void cmd_edit(int argc, char* argv[]);
 
+/* shell tab completion */
+void shell_tab_handle(char* buffer, uint32_t* pos, uint32_t max_length);
 #endif

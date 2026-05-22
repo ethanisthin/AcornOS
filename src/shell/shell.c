@@ -71,6 +71,79 @@ void shell_print_prompt(void) {
     vga_printf_colored(VGA_COLOR_CYAN, VGA_COLOR_BLACK, SHELL_PROMPT);
 }
 
+
+void shell_tab_handle(char *buffer, uint32_t *pos, uint32_t max_length){
+    int word_start = *pos;
+    while (word_start > 0 && !is_space(buffer[word_start-1])){
+        word_start--;
+    }
+
+    int word_idx = 0;
+    int word_in = 0;
+
+    for (int i=0; i<word_start; i++){
+        if (!is_space(buffer[i]) && !word_in){
+            word_idx++;
+            word_in = 1;
+        } else if (is_space(buffer[i])) {
+            word_in = 0;
+        }
+    }
+    
+    int word_len = *pos - word_start;
+    char partial[64];
+    if (word_len > 0 && word_len < 64) {
+        strncpy(partial, buffer + word_start, word_len);
+    }
+    partial[word_len] = '\0';
+    static char completion_matches[64][32];
+    int match_count = 0;
+    if (word_idx == 0) {
+        for (int i = 0; commands[i].name != NULL && match_count < 64; i++) {
+            if (strncmp(partial, commands[i].name, word_len) == 0) {
+                strncpy(completion_matches[match_count], commands[i].name, 31);
+                completion_matches[match_count][31] = '\0';
+                match_count++;
+            }
+        }
+    } else {
+        static fat16_dir_entry_t entries[64];
+        int entry_count;
+        uint16_t cluster = fat16_get_current_dir_cluster();
+        if (fat16_read_directory_cluster(cluster, entries, 64, &entry_count)) {
+            for (int i = 0; i < entry_count && match_count < 64; i++) {
+                char filename[13];
+                fat16_83_to_filename(entries[i].filename, filename);
+                if (strlen(filename) > 0 && strncmp(partial, filename, word_len) == 0) {
+                    strncpy(completion_matches[match_count], filename, 31);
+                    completion_matches[match_count][31] = '\0';
+                    match_count++;
+                }
+            }
+        }
+    }
+    if (match_count == 0) {
+        return;
+    }
+    if (match_count == 1) {
+        const char* suffix = completion_matches[0] + word_len;
+        vga_printf("%s", suffix);
+        strncpy(buffer + word_start, completion_matches[0], max_length - word_start - 1);
+        *pos = word_start + strlen(completion_matches[0]);
+        buffer[*pos] = '\0';
+    } else {
+        vga_printf("\n");
+        for (int i = 0; i < match_count; i++) {
+            if (i > 0) vga_printf("  ");
+            vga_printf("%s", completion_matches[i]);
+        }
+        vga_printf("\n");
+        shell_print_prompt();
+        buffer[*pos] = '\0';
+        vga_printf("%s", buffer);
+    }
+}
+
 void shell_parse_input(const char* input, shell_context_t* ctx) {
     ctx->argc = 0;
     

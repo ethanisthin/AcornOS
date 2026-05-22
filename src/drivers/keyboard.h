@@ -103,4 +103,9 @@ bool keyboard_is_caps_lock_on(void);
 uint8_t keyboard_get_modifiers(void);
 void keyboard_handle_special_combination(uint8_t scancode, uint8_t modifiers);
 
+/* shell tab completion */
+typedef void (*tab_completion_fn)(char* buffer, uint32_t* pos, uint32_t max_length);
+void keyboard_tab_handle(tab_completion_fn handler);
+
+
 #endif

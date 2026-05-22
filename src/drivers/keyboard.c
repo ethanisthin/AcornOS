@@ -10,7 +10,7 @@ static bool ctrl_pressed = false;
 static bool alt_pressed = false;
 static bool caps_lock = false;
 static keyboard_buffer_t kb_buffer;
-
+static tab_completion_fn tab_handler = NULL;
 
 /**
  * Lower case scan-code (in hex) to ASCII conversion table
@@ -115,6 +115,11 @@ static void keyboard_wait_output(void) {
     }
 }
 
+void keyboard_tab_handle(tab_completion_fn handler){
+    tab_handler = handler;
+}
+
+
 
 void keyboard_gets(char* buffer, uint32_t max_length) {
     uint32_t pos = 0;
@@ -134,6 +139,10 @@ void keyboard_gets(char* buffer, uint32_t max_length) {
             buffer[pos] = c;
             pos++;
             vga_printf("%c", c);
+        } else if (c == '\t') {
+            if (tab_handler){
+                tab_handler(buffer, &pos, max_length);
+            }
         }
     }
     

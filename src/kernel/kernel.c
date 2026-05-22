@@ -29,5 +29,6 @@ void kernel_main() {
     
     fat16_init();
     shell_init();
+    keyboard_tab_handle(shell_tab_handle);
     shell_run();
 }
