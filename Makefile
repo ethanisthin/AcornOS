@@ -14,6 +14,8 @@ SHELL_SRC = $(SRC)/shell/shell.c
 FS_SRC = $(SRC)/filesystem/fat16.c
 ATA_SRC = $(SRC)/drivers/ata.c
 EDITOR_SRC = $(SRC)/vim_editor/editor.c
+TOOLS_DIR = tools
+FAT_IMG = $(BUILD)/fat_partition.bin
 
 # Object files
 KERNEL_OBJ = $(BUILD)/kernel.o $(BUILD)/interrupts.o $(BUILD)/pic.o $(BUILD)/timer.o 
@@ -91,17 +93,24 @@ $(BUILD)/interrupts_handlers.o: $(INTERRUPT_ASM)
 	@mkdir -p $(BUILD)
 	$(ASM) $< -f elf32 -o $@
 
+$(TOOLS_DIR)/mkfat16: $(TOOLS_DIR)/mkfat16.c
+	$(CC) -o $@ $<
+
+$(FAT_IMG): $(TOOLS_DIR)/mkfat16
+	$(TOOLS_DIR)/mkfat16 $(FAT_IMG)
+
 $(BUILD)/kernel.bin: $(KERNEL_OBJ) $(VGA_OBJ) $(STRING_OBJ) $(INTERRUPT_OBJ) $(KEYBOARD_OBJ) $(SHELL_OBJ) $(FS_OBJ) $(ATA_OBJ) $(EDITOR_OBJ)
 	$(LD) -m elf_i386 -T $(SRC)/kernel/linker.ld -nostdlib -o $@ $^ --oformat binary
 
-$(BUILD)/main_disk.img: $(BUILD)/stage1.bin $(BUILD)/stage2.bin $(BUILD)/kernel.bin
+$(BUILD)/main_disk.img: $(BUILD)/stage1.bin $(BUILD)/stage2.bin $(BUILD)/kernel.bin $(FAT_IMG)
 	@dd if=/dev/zero of=build/main_disk.img bs=512 count=8192
 	@dd if=$(BUILD)/stage1.bin of=build/main_disk.img conv=notrunc
 	@dd if=$(BUILD)/stage2.bin of=build/main_disk.img conv=notrunc bs=512 seek=1 
 	@dd if=$(BUILD)/kernel.bin of=build/main_disk.img conv=notrunc bs=512 seek=20
+	@dd if=$(FAT_IMG) of=build/main_disk.img conv=notrunc bs=512 seek=200
 	@echo "Disk image created successfully"
 
 run: $(BUILD)/main_disk.img
 	qemu-system-i386 -drive format=raw,file=build/main_disk.img
 clean:
-	rm -rf $(BUILD)
+	rm -rf $(BUILD) $(TOOLS_DIR)/mkfat16
