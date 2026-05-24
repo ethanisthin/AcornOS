@@ -28,6 +28,7 @@ void kernel_main() {
     }
     
     fat16_init();
+    fat16_mount();
     shell_init();
     shell_run();
 }

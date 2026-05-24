@@ -3,6 +3,7 @@
 #include "../lib/string/string.h"
 #include "../drivers/ata.h"
 #include <stdbool.h>
+#include <stdint.h>
 #include "../vim_editor/editor.h"
 #include "../debug_params.h"
 
@@ -181,47 +182,38 @@ void fat16_init(void) {
     fs_ctx.fat_table = NULL;
     
     fat16_init_directory_context();
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,
-                      "FAT-16 filesystem initialized\n");
+    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK, "FAT-16 filesystem initialized\n");
 }
 
 bool fat16_mount(void) {
     vga_printf("Mounting FAT-16 filesystem...\n");
-    
-    
-    fat16_boot_sector_t boot_sector;
-    if (!fat16_read_sector(100, &boot_sector)) {
+
+    uint8_t boot_buffer[512];
+    if (!fat16_read_sector(200, boot_buffer)) {
         vga_printf("Failed to read boot sector\n");
         return false;
     }
-    
-    
+
+    fat16_boot_sector_t boot_sector;
+    memcpy(&boot_sector, boot_buffer, sizeof(fat16_boot_sector_t));
     if (boot_sector.bytes_per_sector != 512) {
         vga_printf("Invalid bytes per sector: %d\n", boot_sector.bytes_per_sector);
         return false;
     }
-    
     if (boot_sector.fat_count != 2) {
         vga_printf("Invalid FAT count: %d\n", boot_sector.fat_count);
         return false;
     }
-    
-    
     if (memcmp(boot_sector.oem_name, "ACORNOS ", 8) != 0) {
         vga_printf("Invalid OEM name (not AcornOS filesystem)\n");
         return false;
     }
-    
-    
     memcpy(&fs_ctx.boot_sector, &boot_sector, sizeof(fat16_boot_sector_t));
-    
-    
-    fs_ctx.fat_start_sector = 100 + boot_sector.reserved_sectors;
+
+    fs_ctx.fat_start_sector = 200 + boot_sector.reserved_sectors;
     fs_ctx.root_dir_start_sector = fs_ctx.fat_start_sector + (boot_sector.fat_count * boot_sector.sectors_per_fat);
     fs_ctx.data_start_sector = fs_ctx.root_dir_start_sector + ((boot_sector.root_entries * 32) / boot_sector.bytes_per_sector);
     fs_ctx.total_clusters = (boot_sector.total_sectors_16 - fs_ctx.data_start_sector) / boot_sector.sectors_per_cluster;
-    
-    
     fs_ctx.mounted = true;
     
     vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"FAT-16 filesystem mounted successfully!\n");
@@ -235,7 +227,7 @@ bool fat16_mount(void) {
         fs_ctx.mounted = false;
         return false;
     }
-    
+    vga_printf("MOUNT ABOUT TO RETURN\n");
     return true;
 }
 
@@ -908,15 +900,19 @@ bool fat16_format_disk(void) {
     fat16_boot_sector_t boot_sector;
     fat16_create_boot_sector(&boot_sector);
     
-    vga_printf("Writing boot sector to sector 100...\n");
+    vga_printf("Writing boot sector to sector 200...\n");
+
+    uint8_t boot_buffer[512];
+    memset(boot_buffer, 0, 512);
+    memcpy(boot_buffer, &boot_sector, sizeof(fat16_boot_sector_t));
     
-    if (!fat16_write_sector(100, &boot_sector)) {
+    if (!fat16_write_sector(200, boot_buffer)) {
         vga_printf("Failed to write boot sector\n");
         return false;
     }
     
     vga_printf("Boot sector written successfully\n");
-    vga_printf("FAT-16 boot sector written to sector 100\n");
+    vga_printf("FAT-16 boot sector written to sector 200\n");
     vga_printf("Format operation completed\n");
     return true;
 }
