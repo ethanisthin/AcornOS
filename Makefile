@@ -6,6 +6,7 @@ BUILD = build
 
 # Source files
 KERNEL_SRC = $(SRC)/kernel/kernel.c $(SRC)/arch/interrupts.c $(SRC)/arch/pic.c $(SRC)/arch/timer.c 
+MM_SRC = $(SRC)/mm/pmm.c $(SRC)/mm/vmm.c
 VGA_SRC = $(SRC)/drivers/vga.c
 STRING_SRC = $(SRC)/lib/string/string.c
 INTERRUPT_ASM = $(SRC)/arch/interrupts_handlers.asm
@@ -19,6 +20,7 @@ FAT_IMG = $(BUILD)/fat_partition.bin
 
 # Object files
 KERNEL_OBJ = $(BUILD)/kernel.o $(BUILD)/interrupts.o $(BUILD)/pic.o $(BUILD)/timer.o 
+MM_OBJ = $(BUILD)/pmm.o $(BUILD)/vmm.o
 VGA_OBJ = $(BUILD)/vga.o
 STRING_OBJ = $(BUILD)/string.o
 INTERRUPT_OBJ = $(BUILD)/interrupts_handlers.o
@@ -31,7 +33,8 @@ EDITOR_OBJ = $(BUILD)/editor.o
 KERNEL_BIN = $(BUILD)/kernel.bin
 
 CFLAGS = -ffreestanding -nostdlib -Wall -Wextra -m32 -fno-pic -fno-pie -fno-stack-protector\
-         -I$(SRC)/drivers -I$(SRC)/lib/string -I$(SRC)/include -I$(SRC)/kernel -I$(SRC)/arch -I$(SRC)/shell -I$(SRC)/filesystem -I$(SRC)/vim_editor
+         -I$(SRC)/drivers -I$(SRC)/lib/string -I$(SRC)/include -I$(SRC)/kernel -I$(SRC)/arch -I$(SRC)/shell -I$(SRC)/filesystem -I$(SRC)/vim_editor\
+		 -I$(SRC)/mm
 
 .PHONY: all run clean
 
@@ -48,6 +51,14 @@ $(BUILD)/stage2.bin: $(SRC)/bootloader/stage2.asm
 $(BUILD)/kernel.o: $(SRC)/kernel/kernel.c
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/pmm.o: $(SRC)/mm/pmm.c
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/vmm.o: $(SRC)/mm/vmm.c
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@ 
 
 $(BUILD)/interrupts.o: $(SRC)/arch/interrupts.c
 	@mkdir -p $(BUILD)
@@ -99,7 +110,7 @@ $(TOOLS_DIR)/mkfat16: $(TOOLS_DIR)/mkfat16.c
 $(FAT_IMG): $(TOOLS_DIR)/mkfat16
 	$(TOOLS_DIR)/mkfat16 $(FAT_IMG)
 
-$(BUILD)/kernel.bin: $(KERNEL_OBJ) $(VGA_OBJ) $(STRING_OBJ) $(INTERRUPT_OBJ) $(KEYBOARD_OBJ) $(SHELL_OBJ) $(FS_OBJ) $(ATA_OBJ) $(EDITOR_OBJ)
+$(BUILD)/kernel.bin: $(KERNEL_OBJ) $(MM_OBJ) $(VGA_OBJ) $(STRING_OBJ) $(INTERRUPT_OBJ) $(KEYBOARD_OBJ) $(SHELL_OBJ) $(FS_OBJ) $(ATA_OBJ) $(EDITOR_OBJ)
 	$(LD) -m elf_i386 -T $(SRC)/kernel/linker.ld -nostdlib -o $@ $^ --oformat binary
 
 $(BUILD)/main_disk.img: $(BUILD)/stage1.bin $(BUILD)/stage2.bin $(BUILD)/kernel.bin $(FAT_IMG)
