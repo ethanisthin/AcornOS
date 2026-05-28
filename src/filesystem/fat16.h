@@ -99,7 +99,7 @@ int fat16_read_root_directory(fat16_dir_entry_t* entries, int max_entries);
 bool fat16_write_directory_entry(const fat16_dir_entry_t* entry);
 bool fat16_delete_directory_entry(const char* filename);
 bool fat16_read_file_content(const char* filename, void* buffer, uint32_t buffer_size, uint32_t* bytes_read);
-bool fat16_write_file_content(const char* filename, const void* buffer, uint32_t data_size);
+// bool fat16_write_file_content(const char* filename, const void* buffer, uint32_t data_size);
 bool fat16_write_directory_entry_to_cluster(const fat16_dir_entry_t* entry, uint16_t dir_cluster);
 bool fat16_write_directory_entry(const fat16_dir_entry_t* entry);
 uint16_t fat16_get_current_dir_cluster(void);
