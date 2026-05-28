@@ -7,6 +7,8 @@
 #include "../drivers/ata.h"
 #include "../debug_params.h"
 #include "../arch/timer.h"
+#include "../mm/pmm.h"
+#include "../mm/vmm.h"
 
 
 void kernel_main() {
@@ -26,7 +28,8 @@ void kernel_main() {
         vga_printf_colored(VGA_COLOR_LIGHT_BLUE, VGA_COLOR_BLACK, "No ATA drive detected (using simulation mode)\n");
     }
     }
-    
+    pmm_init();
+    vmm_init();
     fat16_init();
     fat16_mount();
     shell_init();
