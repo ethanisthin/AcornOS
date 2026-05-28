@@ -40,7 +40,9 @@ void timer_init(uint32_t frequency) {
     outb(PIT_CHANNEL0, divisor & 0xFF);
     outb(PIT_CHANNEL0, (divisor >> 8) & 0xFF);
     
-    vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Timer initialized: %d Hz (divisor: %d)\n", frequency, divisor);
+    if (TIMER_DEBUG){
+        vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Timer initialized: %d Hz (divisor: %d)\n", frequency, divisor);
+    }
 }
 
 uint32_t timer_get_ticks(void) {
