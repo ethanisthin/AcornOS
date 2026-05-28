@@ -1,7 +1,6 @@
 #ifndef STRING_H
 #define STRING_H
 
-#define NULL ((void*)0)
 
 int strlen(const char* str);
 char* strcpy(char* dest, const char* src);
