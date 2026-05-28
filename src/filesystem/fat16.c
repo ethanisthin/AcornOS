@@ -733,7 +733,11 @@ bool fat16_delete_file(const char* filename) {
     }
     
     static fat16_dir_entry_t entries[64];
-    int entry_count = fat16_read_root_directory(entries, 64);
+    int entry_count;
+    if (!fat16_read_directory_cluster(dir_ctx.current_dir_cluster, entries, 64, &entry_count)) {
+        vga_printf("Failed to read directory\n");
+        return false;
+    }
     
     uint16_t first_cluster = 0;
     bool file_found = false;
@@ -1004,41 +1008,66 @@ bool fat16_delete_directory_entry(const char* filename) {
     if (!fs_ctx.mounted || !filename) {
         return false;
     }
-    
-    uint32_t root_dir_sectors = (fs_ctx.boot_sector.root_entries * 32) / fs_ctx.boot_sector.bytes_per_sector;
     uint32_t entries_per_sector = fs_ctx.boot_sector.bytes_per_sector / 32;
     uint8_t sector_buffer[512];
-    
-    for (uint32_t sector = 0; sector < root_dir_sectors; sector++) {
-        if (!fat16_read_sector(fs_ctx.root_dir_start_sector + sector, sector_buffer)) {
-            return false;
-        }
-        
-        fat16_dir_entry_t* sector_entries = (fat16_dir_entry_t*)sector_buffer;
-        
-        for (uint32_t i = 0; i < entries_per_sector; i++) {
-            fat16_dir_entry_t* entry = &sector_entries[i];
-            
-            
-            if (entry->filename[0] == 0x00 || (unsigned char)entry->filename[0] == 0xE5) {
-                continue;
+
+    if (dir_ctx.current_dir_cluster == 0) {
+        uint32_t root_dir_sectors = (fs_ctx.boot_sector.root_entries * 32) / fs_ctx.boot_sector.bytes_per_sector;
+        for (uint32_t sector = 0; sector < root_dir_sectors; sector++) {
+            if (!fat16_read_sector(fs_ctx.root_dir_start_sector + sector, sector_buffer)) {
+                return false;
             }
-            
-            char entry_filename[13];
-            fat16_83_to_filename(entry->filename, entry_filename);
-            
-            if (strcmp(entry_filename, filename) == 0) {
-                entry->filename[0] = (char)0xE5;
-                if (!fat16_write_sector(fs_ctx.root_dir_start_sector + sector, sector_buffer)) {
+            fat16_dir_entry_t* sector_entries = (fat16_dir_entry_t*)sector_buffer;
+            for (uint32_t i = 0; i < entries_per_sector; i++) {
+                fat16_dir_entry_t* entry = &sector_entries[i];
+                if (entry->filename[0] == 0x00 || (unsigned char)entry->filename[0] == 0xE5) {
+                    continue;
+                }
+                char entry_filename[13];
+                fat16_83_to_filename(entry->filename, entry_filename);
+                if (strcmp(entry_filename, filename) == 0) {
+                    entry->filename[0] = (char)0xE5;
+                    if (!fat16_write_sector(fs_ctx.root_dir_start_sector + sector, sector_buffer)) {
+                        return false;
+                    }
+                    vga_printf("Directory entry deleted: %s\n", filename);
+                    return true;
+                }
+            }
+        }
+    } else {
+        
+        uint16_t current_cluster = dir_ctx.current_dir_cluster;
+        while (current_cluster >= 2 && current_cluster < 0xFFF8) {
+            uint32_t sector = fat16_cluster_to_sector(current_cluster);
+            uint32_t sectors_per_cluster = fs_ctx.boot_sector.sectors_per_cluster;
+            for (uint32_t s = 0; s < sectors_per_cluster; s++) {
+                if (!fat16_read_sector(sector + s, sector_buffer)) {
                     return false;
                 }
-                vga_printf("Directory entry deleted: %s\n", filename);
-                return true;
+                fat16_dir_entry_t* sector_entries = (fat16_dir_entry_t*)sector_buffer;
+                for (uint32_t i = 0; i < entries_per_sector; i++) {
+                    fat16_dir_entry_t* entry = &sector_entries[i];
+                    if (entry->filename[0] == 0x00 || (unsigned char)entry->filename[0] == 0xE5) {
+                        continue;
+                    }
+                    char entry_filename[13];
+                    fat16_83_to_filename(entry->filename, entry_filename);
+                    if (strcmp(entry_filename, filename) == 0) {
+                        entry->filename[0] = (char)0xE5;
+                        if (!fat16_write_sector(sector + s, sector_buffer)) {
+                            return false;
+                        }
+                        vga_printf("Directory entry deleted: %s\n", filename);
+                        return true;
+                    }
+                }
             }
+            
+            current_cluster = fs_ctx.fat_table[current_cluster];
         }
     }
-    
-    return false; 
+    return false;
 }
 
 
