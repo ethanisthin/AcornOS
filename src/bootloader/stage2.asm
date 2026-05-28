@@ -23,6 +23,10 @@ start:
     
     call enable_a20
 
+    mov si, msg_querying_e820
+    call puts
+    call e820_query
+
     mov si, msg_entering_pmode
     call puts
 
@@ -130,6 +134,33 @@ gdt_descriptor:
     dw gdt_end - gdt_start - 1
     dd gdt_start
 
+e820_query:
+    mov ax, 0
+    mov es, ax
+    mov di, 0x8004
+    xor ebx, ebx
+    xor bp, bp
+    mov edx, 0x534D4150
+.e820_loop:
+    mov eax, 0xE820
+    mov ecx, 24
+    int 0x15
+    jc .e820_done           
+    cmp eax, 0x534D4150     
+    jne .e820_done
+    inc bp
+    add di, 24
+    cmp ebx, 0              
+    je .e820_done
+    jmp .e820_loop
+.e820_done:
+    mov [0x8000], bp        
+    ret
+
+
+
+
+
 bits 32
 protected_mode:
     mov ax, 0x10
@@ -155,6 +186,7 @@ boot_drive: db 0
 msg_stage2: db 'Stage2 started', 0x0D, 0x0A, 0
 msg_loading_kernel: db 'Loading kernel...', 0x0D, 0x0A, 0
 msg_using_lba: db 'Using LBA', 0x0D, 0x0A, 0
+msg_querying_e820: db 'Querying E820 mem map', 0x0D, 0x0A, 0
 msg_using_chs: db 'Using CHS', 0x0D, 0x0A, 0
 msg_kernel_loaded: db 'Kernel loaded', 0x0D, 0x0A, 0
 msg_entering_pmode: db 'Entering protected mode', 0x0D, 0x0A, 0
