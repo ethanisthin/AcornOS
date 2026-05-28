@@ -13,7 +13,7 @@ static int cursor_y = 0;
 
 
 static inline unsigned short vga_entry(char c, vga_colours fg, vga_colours bg) {
-    return (unsigned short)c | ((unsigned short)(fg | (bg << 4)) << 8);
+    return (unsigned short)(unsigned char)c | ((unsigned short)(fg | (bg << 4)) << 8);
 }
 
 /* Cursor stuff */
@@ -160,7 +160,7 @@ void vga_putchar(char c) {
             cursor_x = WIDTH - 1;
         }
         vga_putchar_at(' ', cursor_x, cursor_y);
-    } else if (c >= 32) { 
+    } else if ((unsigned char) c >= 32) { 
         vga_putchar_at(c, cursor_x, cursor_y);
         cursor_x++;
     }
