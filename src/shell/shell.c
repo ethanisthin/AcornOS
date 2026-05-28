@@ -10,6 +10,7 @@
 #include "../lib/string/string.h"
 #include "../filesystem/fat16.h"
 #include "../vim_editor/editor.h"
+#include "../debug_params.h"
 
 static shell_context_t shell_ctx;
 
@@ -62,8 +63,15 @@ void shell_init(void) {
     for (int i = 0; i < SHELL_MAX_HISTORY; i++) {
         memset(shell_ctx.history[i], 0, SHELL_MAX_INPUT);
     }
-    
-    vga_printf_colored(VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK, "AcornOS Shell initialized\n");
+
+    vga_printf_colored(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK,
+        "\n"
+        "\xB0\xDB\xDB\xDB\xDB\xDB\xBF\xB0\xB0\xDB\xDB\xDB\xDB\xDB\xBF\xB0\xB0\xDB\xDB\xDB\xDB\xDB\xBF\xDB\xDB\xDB\xDB\xDB\xDB\xBF\xB0\xDB\xDB\xDB\xBF\xB0\xB0\xDB\xDB\xBF\xB0\xDB\xDB\xDB\xDB\xDB\xBF\xB0\xB0\xDB\xDB\xDB\xDB\xDB\xDB\xBF\n"
+        "\xDB\xDB\xC9\xCD\xCD\xDB\xDB\xBF\xDB\xDB\xC9\xCD\xCD\xDB\xDB\xBF\xDB\xDB\xC9\xCD\xCD\xDB\xDB\xBF\xDB\xDB\xC9\xCD\xCD\xDB\xDB\xBF\xDB\xDB\xDB\xDB\xBF\xB0\xDB\xDB\xBA\xDB\xDB\xC9\xCD\xCD\xDB\xDB\xBF\xDB\xDB\xC9\xCD\xCD\xCD\xCD\xBC\n"
+        "\xDB\xDB\xDB\xDB\xDB\xDB\xDB\xBA\xDB\xDB\xBA\xB0\xB0\xC8\xCD\xBC\xDB\xDB\xBA\xB0\xB0\xDB\xDB\xBA\xDB\xDB\xDB\xDB\xDB\xDB\xC9\xBC\xDB\xDB\xC9\xDB\xDB\xBF\xDB\xDB\xBA\xDB\xDB\xBA\xB0\xB0\xDB\xDB\xBA\xC8\xDB\xDB\xDB\xDB\xDB\xBF\xB0\n"
+        "\xDB\xDB\xC9\xCD\xCD\xDB\xDB\xBA\xDB\xDB\xBA\xB0\xB0\xDB\xDB\xBF\xDB\xDB\xBA\xB0\xB0\xDB\xDB\xBA\xDB\xDB\xC9\xCD\xCD\xDB\xDB\xBF\xDB\xDB\xBA\xC8\xDB\xDB\xDB\xDB\xBA\xDB\xDB\xBA\xB0\xB0\xDB\xDB\xBA\xB0\xC8\xCD\xCD\xCD\xDB\xDB\xBF\n"
+        "\xDB\xDB\xBA\xB0\xB0\xDB\xDB\xBA\xC8\xDB\xDB\xDB\xDB\xDB\xC9\xBC\xC8\xDB\xDB\xDB\xDB\xDB\xC9\xBC\xDB\xDB\xBA\xB0\xB0\xDB\xDB\xBA\xDB\xDB\xBA\xB0\xDB\xDB\xDB\xBA\xC8\xDB\xDB\xDB\xDB\xDB\xC9\xBC\xDB\xDB\xDB\xDB\xDB\xDB\xC9\xBC\n"
+        "\xC8\xCD\xBC\xB0\xB0\xC8\xCD\xBC\xB0\xC8\xCD\xCD\xCD\xCD\xBC\xB0\xB0\xC8\xCD\xCD\xCD\xCD\xBC\xB0\xC8\xCD\xBC\xB0\xB0\xC8\xCD\xBC\xC8\xCD\xBC\xB0\xB0\xC8\xCD\xCD\xCD\xBC\xB0\xC8\xCD\xCD\xCD\xCD\xBC\xB0\xC8\xCD\xCD\xCD\xCD\xCD\xBC\xB0\n");
     vga_printf("Type 'help' for available commands\n\n");
 
     keyboard_tab_handle(shell_tab_handle);
@@ -566,7 +574,7 @@ void cmd_cp(int argc, char* argv[]) {
     }
     
     if (bytes_read > 0) {
-        if (fat16_write_file_content(dest, file_buffer, bytes_read)) {
+        if (fat16_write_file_content_in_current_dir(dest, file_buffer, bytes_read)) {
             vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"File copied successfully: %s -> %s (%d bytes)\n",  source, dest, bytes_read);
         } else {
             vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Failed to write to destination file\n");
@@ -602,7 +610,11 @@ void cmd_mv(int argc, char* argv[]) {
     }
     
     static fat16_dir_entry_t entries[64];
-    int entry_count = fat16_read_root_directory(entries, 64);
+    int entry_count;
+    if (!fat16_read_directory_cluster(fat16_get_current_dir_cluster(), entries, 64, &entry_count)) {
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK, "Failed to read directory\n");
+        return;
+    }
     
     for (int i = 0; i < entry_count; i++) {
         char entry_filename[13];
@@ -611,7 +623,7 @@ void cmd_mv(int argc, char* argv[]) {
             fat16_dir_entry_t new_entry;
             memcpy(&new_entry, &entries[i], sizeof(fat16_dir_entry_t));
             fat16_filename_to_83(dest, new_entry.filename);
-            if (fat16_write_directory_entry(&new_entry)) {
+            if (fat16_write_directory_entry_to_cluster(&new_entry, fat16_get_current_dir_cluster())) {
                 if (fat16_delete_directory_entry(source)) {
                     vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"File moved successfully: %s -> %s\n", source, dest);
                     vga_printf("Note: Only directory entry moved (file content not relocated)\n");
@@ -665,7 +677,11 @@ void cmd_stat(int argc, char* argv[]) {
     }
 
     static fat16_dir_entry_t entries[64];
-    int entry_count = fat16_read_root_directory(entries, 64);
+    int entry_count;
+    if (!fat16_read_directory_cluster(fat16_get_current_dir_cluster(), entries, 64, &entry_count)) {
+        vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK, "Failed to read directory\n");
+        return;
+    }
     for (int i = 0; i < entry_count; i++) {
         fat16_dir_entry_t* entry = &entries[i];
         char entry_filename[13];
@@ -748,7 +764,7 @@ void cmd_mount(int argc, char* argv[]) {
         } else {
             vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Mount failed!\n");
         }
-    } else {
+    } else if (FS_DEBUG) {
         vga_printf("Filesystem already mounted:\n");
         vga_printf("FAT starts at sector: %d\n", fs_ctx.fat_start_sector);
         vga_printf("Root directory at sector: %d\n", fs_ctx.root_dir_start_sector);
@@ -797,7 +813,7 @@ void cmd_echo_to_file(int argc, char* argv[]) {
         strcat(text_buffer, argv[i]);
     }
     
-    if (fat16_write_file_content(filename, text_buffer, strlen(text_buffer))) {
+    if (fat16_write_file_content_in_current_dir(filename, text_buffer, strlen(text_buffer))) {
         vga_printf_colored(VGA_COLOR_GREEN, VGA_COLOR_BLACK,"Text written to file: %s\n", filename);
     } else {
         vga_printf_colored(VGA_COLOR_RED, VGA_COLOR_BLACK,"Failed to write to file: %s\n", filename);
