@@ -13,7 +13,7 @@ A custom operating system built from scratch with a bootloader, kernel, shell, a
 - **Shell Interface**: Command-line interface with history and tab completion
 - **Text Editor**: Vim-inspired text editor with basic editing capabilities
 - **File System**: FAT16 implementation with ATA driver support
-- **Memory Management**: Basic string library and memory operations
+- **Memory Management**: Physical page allocation (PMM) with an E820 memory map, virtual memory (VMM) with page tables, and string library
 
 ## Components
 
@@ -25,6 +25,11 @@ A custom operating system built from scratch with a bootloader, kernel, shell, a
 - Main kernel entry point
 - Hardware initialization (VGA, interrupts, keyboard)
 - System resource management
+
+### Memory Management
+- **PMM**: Physical page allocation with bitmap tracking and E820 memory map parsing
+- **VMM**: Virtual memory with page directory/table management and identity mapping
+- **String library**: Basic string operations 
 
 ### Shell
 Commands include:
@@ -104,6 +109,7 @@ To run on real hardware:
 ```
 AcornOS/
 ├── src/
+│   ├── include/      # types 
 │   ├── arch/         # Architecture-specific code (interrupts, PIC)
 │   ├── bootloader/   # Two-stage bootloader (assembly)
 │   ├── drivers/      # Device drivers (VGA, keyboard, ATA)
@@ -111,6 +117,7 @@ AcornOS/
 │   ├── kernel/       # Main kernel code
 │   ├── lib/          # Library functions (string operations)
 │   ├── shell/        # Command-line shell
+│   ├── mm/           # Memory managers PMM and VMM
 │   └── vim_editor/   # Vim-inspired text editor
 ├── build/            # Build output directory
 └── Makefile          # Build configuration
